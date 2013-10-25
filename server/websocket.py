@@ -35,7 +35,7 @@ class WebsocketServer:
                     break
             socket, address = self.socket.accept()
             print "Connection from: {}".format(address)
-            new_connection = WebsocketConnection(socket, address)
+            new_connection = WebsocketConnection(socket, address, self.port)
             new_connection.handshake()
             Thread(target = self.accept_handler, args = (new_connection,)).start()
 
@@ -153,10 +153,10 @@ PAYLOAD_LENGTH_2_BYTE = 126
 PAYLOAD_LENGTH_8_BYTE = 127
 
 class WebsocketConnection:
-    def __init__(self, socket, address):
+    def __init__(self, socket, address, port):
         self.socket = socket
         self.address = address
-
+        self.port = port
     @staticmethod
     def parse_headers (data):
         headers = {}
@@ -191,7 +191,7 @@ class WebsocketConnection:
         shake += "Sec-WebSocket-Protocol: dota2ticker\r\n\r\n"
         return self.socket.send(shake)
 
-    def recieve(self):
+    def receive(self):
         header_data = self.socket.recv(2)
         header = WebsocketFrameHeader.decodeMinimalHeader(header_data)
         if header.payload_length == PAYLOAD_LENGTH_2_BYTE:
@@ -206,7 +206,7 @@ class WebsocketConnection:
         #continue recieving if message is fragmented
         message_finished = header.fin
         while not header.fin :
-            (opcode, data_continued) = self.recieve()
+            (opcode, data_continued) = self.receive()
             if(opcode != OP_CONTINUATION):
                 print "fragmented message with multiple opcodes"
             data += data_continued

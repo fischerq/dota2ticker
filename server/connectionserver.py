@@ -11,18 +11,20 @@ import gameserver
 class ConnectionServer(WebsocketServer):
     def __init__(self):
         WebsocketServer.__init__(self, 29000, self.handleClient)
-        self.gameservers = []
-        self.gameservers_lock = Lock()
+        self.game_servers = []
+        self.game_servers_lock = Lock()
         self.start()
     def addGameServer(self, game_server):
-        with self.gameservers_lock:
-            self.gameservers.append(game_server)
+        with self.game_servers_lock:
+            self.game_servers.append(game_server)
         
     def handleClient(self, client):
         connection = DataConnection(client)
-        connect_message = connection.recieve()
-        if not Protocol.check(connect_message) or connect_message["Type"] != MessageType.CONNECT:
+        connect_message = connection.receive()
+        if (not Protocol.check(connect_message)) or (connect_message["Type"] != MessageType.CONNECT):
             print "Bad connection message"
+            print Protocol.check(connect_message)
+            print connect_message["Type"]
         else:
             server = self.findGameServer(connect_message)
             if server is not None:
@@ -39,10 +41,10 @@ class ConnectionServer(WebsocketServer):
     def findGameServer(self, message):
         game_id = message["GameID"]
         server = None
-        with self.gameservers_lock:
-            for gameserver in self.gameservers:
-                if gameserver.providesGame(game_id):
-                    server = gameserver
+        with self.game_servers_lock:
+            for game_server in self.game_servers:
+                if game_server.providesGame(game_id):
+                    server = game_server
                     break
         return server
             

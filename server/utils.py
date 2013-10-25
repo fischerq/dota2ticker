@@ -3,7 +3,7 @@
 def enum(*sequential):
     enums = dict()
     for i, x in enumerate(sequential):
-        enums[x] = i
+        enums[x] = x
     return type('Enum', (), enums)
 
 import simplejson as json
@@ -16,15 +16,16 @@ class DataConnection:
     def send(self, data):
         message = json.dumps(data)
         self.connection.send(message)
-    def recieve(self):
-        (operation, message) = self.connection.recieve()
+    def receive(self):
+        (operation, message) = self.connection.receive()
         if operation is not websocket.OP_TEXT:
-            print "DataConnection: recieved bad message"
+            print "DataConnection: received bad message {}".format(operation)
             message = ""
+        print "{}: received {}".format(self.connection.port, message)
         return json.loads(message)
     def close(self):
-        (operation, message) = self.connection.recieve()
+        (operation, message) = self.connection.receive()
         if operation is not websocket.OP_CLOSE:
-            print "DataConnection: tried to close, recieved data"
+            print "DataConnection: tried to close, received data"
         else:
             self.connection.close()

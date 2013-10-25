@@ -1,91 +1,91 @@
-function DataConnection(address, port, onmessage, onopen, onclose)
-{
-	this.address = address
-	this.port = port
-	var host = "ws://" + this.address + ":" + this.port;
-	this.socket = new WebSocket(host, "dota2ticker")
-	
-	this.
-	$.parseJSON
-	
-	this.send = function(data){
-		message = JSON.stringify(data);
-		this.socket.send(message);
-	}
-	
-
-	this.socket.onerror = function(e) {
-			console.log("DataConnection Socket error:", e);
-	};
-			
-	function nop(e){}
-	
-	switch (arguments.length - 2) { // <-- number of required arguments
-    case 0:  onmessage = nop;
-    case 1:  onopen = nop;
-    case 2:  onclose = nop;
-	}
-	
-	this.socket.onmessage = function (e){ 
-		onmessage(e.data);
-	};
-	this.socket.onopen = onopen;
-	this.socket.onclose = onclose;
-}
-
 $( document ).ready(function() {
 	try {
-		var server_address = "localhost";
-		var requests_port = 29000;
-		var listener_port = 29500;
-		
-		var host = "ws://" + server_address + ":";
-		console.log("Host:", host+requests_port);
-		
-		var requests = new WebSocket(host+requests_port, "dota2ticker");
-		var listener = new WebSocket(host+listener_port, "dota2ticker");
-		
-		requests.onopen = function (e) {
-			console.log("requests connection opened.");
-		};
-		
-		requests.onclose = function (e) {
-			console.log("requests connection closed.");
-		};
-		
-		var output = $("#output");
-		requests.onmessage = function (e) {
-			console.log("Socket message:", e.data);
-			var p = document.createElement("p");
-			p.innerHTML = e.data;
-			output.append(p);
-		};
-		
-		requests.onerror = function (e) {
-			console.log("Requests Socket error:", e);
-		};
-		
-		
-		listener.onopen = function (e) {
-			console.log("listener connection opened.");
-		};
-		
-		listener.onclose = function (e) {
-			console.log("listener connection closed.");
-		};
-		
-		var listener_display = $("#listener");
-		listener.onmessage = function (e) {
-			console.log("listener message:", e.data);
-			var p = document.createElement("p");
+        var connection_connection;
+        var requests_connection;
+        var listener_connection;
+        var client_id;
+        var game_id = 0;
+        var output = $("#output");
+        var listener_display = $("#listener");
+
+        function openConnectionConnection(){
+            var connection = new Object();
+            connection["Type"] = MessageType.CONNECT;
+            connection["GameID"] = game_id;
+            connection_connection.send(connection);
+        }
+
+        function handleConnectionMessage(message)
+        {
+            if (message["Type"] != MessageType.CLIENT_INFO) {
+                console.log("Unknown MessageType: ", message["Type"]);
+            }
+            else {
+                client_id = message["ClientID"];
+                game_id = message["GameID"];
+                requests_connection = new DataConnection(message["Host"], message["PortRequest"], handleRequestMessage, openRequestsConnection, closeRequestsConnection);
+                listener_connection = new DataConnection(message["Host"], message["PortListener"], handleListenerMessage, openListenerConnection, closeListenerConnection);
+            }
+        };
+
+
+        function openRequestsConnection(e) {
+            console.log("requests connection opened.");
+            var registration = new Object();
+            registration["Type"] = MessageType.REGISTER;
+            registration["ClientID"] = client_id;
+            registration["GameID"] = game_id;
+            requests_connection.send(registration);
+        };
+
+        function handleRequestMessage(message) {
+            console.log("got request",message);
+            var p = document.createElement("p");
+            p.innerHTML = e.data;
+            output.append(p);
+        };
+
+        function closeRequestsConnection(e) {
+            console.log("requests connection closed.");
+        };
+
+        function openListenerConnection(e) {
+            console.log("listener connection opened.");
+            var registration = new Object();
+            registration["Type"] = MessageType.REGISTER;
+            registration["ClientID"] = client_id;
+            registration["GameID"] = game_id;
+            listener_connection.send(registration);
+        };
+
+        function handleListenerMessage(message) {
+            console.log("got listener notice ",message);
+            if(checkMessage(message)) {
+                switch(message["Type"]) {
+                    case MessageType.STATE:
+                        break;
+                    case MessageType.UPDATE:
+                        break;
+                    case MessageType.EVENT:
+                        break;
+                }
+            }
+            var p = document.createElement("p");
 			p.innerHTML = e.data;
 			listener_display.append(p);
-		};
-		
-		listener.onerror = function (e) {
-			console.log("Listener Socket error:", e);
-		};
-		
+        };
+
+        function closeListenerConnection(e) {
+                console.log("requests connection closed.");
+        };
+
+        //start connection server
+		var server_address = "localhost";
+		var connection_server_port = 29000;
+
+        connection_connection = new DataConnection(server_address, connection_server_port, handleConnectionMessage, openConnectionConnection);
+
+		console.log("Host:", server_address, connection_server_port);
 	} catch (ex) {
 		console.log("Socket exception:", ex);
 	}
