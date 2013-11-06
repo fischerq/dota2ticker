@@ -7,6 +7,8 @@ from utils import DataConnection
 from websocket import WebsocketServer
 
 from game import Game
+from gameloader import GameLoader
+
 
 class GameServer:
     def __init__(self, host, port_requests, port_listeners):
@@ -15,43 +17,54 @@ class GameServer:
         self.clients_lock = Lock()
         self.game_id = 0
         self.game = None
-        self.request_server = WebsocketServer(port_requests, self.handleRequestClient)
+        self.request_server = WebsocketServer(port_requests, self.handle_request_client)
         self.request_server.start()
-        self.listener_server = WebsocketServer(port_listeners, self.handleListenerClient)
+        self.listener_server = WebsocketServer(port_listeners, self.handle_listener_client)
         self.listener_server.start()
-        
-    def handleRequestClient(self, client):
+        self.immediate_subscribers = []
+        self.interval_subscribers = []
+        self.event_subscribers = []
+
+    def handle_request_client(self, client):
         connection = DataConnection(client)
         register_message = connection.receive()
         if not Protocol.check(register_message) or register_message["Type"] != MessageType.REGISTER:
             print "Bad registration message"
             return
-        if not self.providesGame(register_message["GameID"]):
+        if not self.provides_game(register_message["GameID"]):
             print "Bad registration, game not provided"
             return
-        client = self.findClient(register_message["ClientID"])
+        client = self.find_client(register_message["ClientID"])
         client.request = connection
+        confirm_message = dict()
+        confirm_message["Type"] = MessageType.CONFIRM
+        client.request.send(confirm_message)
         run = True
         while run:
             request = connection.receive()
             if not Protocol.check(request):
                 print "Bad request"
                 continue
-            run = self.processRequest(client, request)     
+            if not connection.connected:
+                break;
+            run = self.process_request(client, request)
         
-    def handleListenerClient(self, client):
+    def handle_listener_client(self, client):
         connection = DataConnection(client)
         register_message = connection.receive()
         if not Protocol.check(register_message) or register_message["Type"] != MessageType.REGISTER:
             print "Bad registration message"
             return
-        if not self.providesGame(register_message["GameID"]):
+        if not self.provides_game(register_message["GameID"]):
             print "Bad registration, game not provided"
             return
-        client = self.findClient(register_message["ClientID"])
+        client = self.find_client(register_message["ClientID"])
         client.listener = connection
-        
-    def findClient(self, client_id):
+        confirm_message = dict()
+        confirm_message["Type"] = MessageType.CONFIRM
+        client.listener.send(confirm_message)
+
+    def find_client(self, client_id):
         with self.clients_lock:
             for client in self.clients:
                 if client.id == client_id:
@@ -59,9 +72,8 @@ class GameServer:
         print "Couldn't find client"
         return None
 
-    
-    def createClient(self):
-        client = Client(Protocol.generateID())
+    def create_client(self):
+        client = Client(Protocol.generate_id())
         with self.clients_lock:
             self.clients.append(client)
         message = dict()
@@ -73,32 +85,53 @@ class GameServer:
         message["GameID"] = self.game_id
         return message
     
-    def providesGame(self, game_id):
+    def provides_game(self, game_id):
         return self.game_id == game_id
 
-    def processRequest(self, client, request):
+    def process_request(self, client, request):
         answer = dict()
         request_type = request["Type"]
         if request_type == MessageType.CONFIGURE:
             pass
         elif request_type == MessageType.GETSTATE:
             answer["Type"] = MessageType.STATE
-            answer["State"] = self.game.getState(request["Time"])
+            answer["State"] = self.game.get_state(request["Time"])
             client.request.send(answer)
         elif request_type == MessageType.SUBSCRIBE:
-            pass
+            self.immediate_subscribers.append(client)
+            self.event_subscribers.append(client)
+            message = dict()
+            message["Type"] = MessageType.STATE
+            message["State"] = self.game.get_state(self.game.latest_update).get_data()
+            client.listener.send(message)
         else:
             print "unknown message type {}".format(request_type)
         return True
     
-    def loadGame(self, id_):
+    def load_game(self, id_):
         self.game_id = id_
         self.game = Game(id_)
-        self.game.setUpdateListener(self.registerUpdate)
-        self.game.setMessageListener(self.registerMessage)
+        self.game.set_update_listener(self.register_update)
+        self.game.set_message_listener(self.register_event)
+        game_loader = GameLoader(self.game_id, self.game)
+        game_loader.load()
 
-    def registerUpdate(self):
-        pass
+    def register_update(self, update):
+        message = dict()
+        message["Type"] = MessageType.UPDATE
+        message["Update"] = update.get_data()
+        for client in self.immediate_subscribers:
+            client.listener.send(message)
+
+    def register_event(self, event):
+        message = dict()
+        message["Type"] = MessageType.EVENT
+        message["Event"] = event
+        for client in self.event_subscribers:
+            if event["Importance"] > client.subscribe_threshold:
+                client.listener.send(message)
+
+
 class Client:
     def __init__(self, id_):
         self.id = id_
@@ -106,4 +139,5 @@ class Client:
         self.request = None
         self.subscribe_mode = None
         self.subscribe_interval = None
+        self.subscribe_threshold = 0
         self.current_time = 0

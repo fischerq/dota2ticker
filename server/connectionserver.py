@@ -4,49 +4,48 @@ from websocket import WebsocketServer
 from threading import Lock
 from utils import DataConnection
 
-import protocol as Protocol
+import protocol
 from protocol import MessageType
-import gameserver
+
 
 class ConnectionServer(WebsocketServer):
     def __init__(self):
-        WebsocketServer.__init__(self, 29000, self.handleClient)
+        WebsocketServer.__init__(self, 29000, self.handle_client)
         self.game_servers = []
         self.game_servers_lock = Lock()
         self.start()
-    def addGameServer(self, game_server):
+
+    def add_game_server(self, game_server):
         with self.game_servers_lock:
             self.game_servers.append(game_server)
         
-    def handleClient(self, client):
+    def handle_client(self, client):
         connection = DataConnection(client)
         connect_message = connection.receive()
-        if (not Protocol.check(connect_message)) or (connect_message["Type"] != MessageType.CONNECT):
+        if (not protocol.check(connect_message)) or (connect_message["Type"] != MessageType.CONNECT):
             print "Bad connection message"
-            print Protocol.check(connect_message)
+            print protocol.check(connect_message)
             print connect_message["Type"]
         else:
-            server = self.findGameServer(connect_message)
+            server = self.find_game_server(connect_message)
             if server is not None:
-                client_message = server.createClient()
+                client_message = server.create_client()
             else:
-                client_message = ConnectionServer.rejectConnection()
+                client_message = ConnectionServer.reject_connection()
             connection.send(client_message)
         connection.close()
     @staticmethod
-    def rejectConnection():
+    def reject_connection():
         message = dict()
         message["Type"] = MessageType.REJECT_CONNECTION
         return message
-    def findGameServer(self, message):
+
+    def find_game_server(self, message):
         game_id = message["GameID"]
         server = None
         with self.game_servers_lock:
             for game_server in self.game_servers:
-                if game_server.providesGame(game_id):
+                if game_server.provides_game(game_id):
                     server = game_server
                     break
         return server
-            
-                    
-        

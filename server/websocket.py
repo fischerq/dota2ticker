@@ -7,6 +7,7 @@ from hashlib import sha1
 from threading import Lock
 from threading import Thread
 
+
 class WebsocketServer:
     def __init__(self, port, accept_handler):
         self.port = port
@@ -23,21 +24,21 @@ class WebsocketServer:
         with self.run_lock:
             if not self.run:
                 self.run = True
-                Thread(target = self.acceptClients).start()
+                Thread(target=self.accept_clients).start()
             else:
                 print "WebsocketServer on port {} already running".format(self.port)
         
-    def acceptClients(self):
+    def accept_clients(self):
         self.socket.listen(5)
         while 1:
             with self.run_lock:
                 if not self.run:
                     break
-            socket, address = self.socket.accept()
+            socket_, address = self.socket.accept()
             print "Connection from: {}".format(address)
-            new_connection = WebsocketConnection(socket, address, self.port)
+            new_connection = WebsocketConnection(socket_, address, self.port)
             new_connection.handshake()
-            Thread(target = self.accept_handler, args = (new_connection,)).start()
+            Thread(target=self.accept_handler, args=(new_connection,)).start()
 
     def stop(self):
         with self.run_lock:
@@ -50,6 +51,7 @@ OP_CLOSE = 8
 OP_PING = 9
 OP_PONG = 10
 
+
 class WebsocketFrameHeader:
     def __init__(self):
         self.fin = 0
@@ -58,6 +60,7 @@ class WebsocketFrameHeader:
         self.mask = 0
         self.payload_length = 0
         self.masks = 0
+
     def encode(self, data):
         frame = ""
         #encode header
@@ -84,6 +87,7 @@ class WebsocketFrameHeader:
         #masking not implemented
         frame += data
         return frame
+
     def decode(self, payload):
         decoded_payload = ""
         byte_array = [ord(character) for character in payload]
@@ -97,7 +101,7 @@ class WebsocketFrameHeader:
         return decoded_payload
 
     @staticmethod
-    def decodeMinimalHeader(header_data):
+    def decode_minimal_header(header_data):
         header = WebsocketFrameHeader()
         byte_array = [ord(character) for character in header_data]
         header.fin = (byte_array[0] & 128) >> 7
@@ -106,8 +110,9 @@ class WebsocketFrameHeader:
         header.mask = (byte_array[1] & 128) >> 7 
         header.payload_length = byte_array[1] & 127
         return header
+
     @staticmethod
-    def decodeFullHeader(header_data):
+    def decode_full_header(header_data):
         header = WebsocketFrameHeader()
         byte_array = [ord(character) for character in header_data]
         header.fin = (byte_array[0] & 128) >> 7
@@ -123,13 +128,14 @@ class WebsocketFrameHeader:
             index_first_mask = 10
             header.payload_length = 0
             for i in range(0, 7):
-                header.payload_length = frame.payload_length | (byte_array[2+i] << (8*(7-i)) )
+                header.payload_length = header.payload_length | (byte_array[2+i] << (8*(7-i)) )
         index_first_data_byte = index_first_mask
         if header.mask:
-            header.masks = [m for m in byte_array[index_first_mask : index_first_mask+4]]
+            header.masks = [m for m in byte_array[index_first_mask: index_first_mask+4]]
         return header
+
     @staticmethod
-    def createTextHeader(size):
+    def create_text_header(size):
         header = WebsocketFrameHeader()
         header.fin = 1
         header.rsv = 0
@@ -138,8 +144,9 @@ class WebsocketFrameHeader:
         header.payload_length = size
         header.masks = None
         return header
+
     @staticmethod
-    def createCloseHeader():
+    def create_close_header():
         header = WebsocketFrameHeader()
         header.fin = 1
         header.rsv = 0
@@ -152,11 +159,13 @@ class WebsocketFrameHeader:
 PAYLOAD_LENGTH_2_BYTE = 126
 PAYLOAD_LENGTH_8_BYTE = 127
 
+
 class WebsocketConnection:
     def __init__(self, socket, address, port):
         self.socket = socket
         self.address = address
         self.port = port
+
     @staticmethod
     def parse_headers (data):
         headers = {}
@@ -170,19 +179,22 @@ class WebsocketConnection:
     #handshaking inspired by http://stackoverflow.com/questions/10152290/python-websocket-handshake-rfc-6455
     @staticmethod
     def create_response (key):
-        GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
-        response_key = b64encode(sha1(key + GUID).digest())
+        guid = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
+        response_key = b64encode(sha1(key + guid).digest())
         return response_key
     
     def handshake(self):
         print "Handshaking..."
         data = self.socket.recv(1024)
         headers = WebsocketConnection.parse_headers(data)
-        #print "Got headers:"
-        #for k, v in headers.iteritems():
-        #    print "{}:{}".format(k,v)
-        if "Sec-WebSocket-Protocol" not in headers or headers["Sec-WebSocket-Protocol"] != "dota2ticker":
+        if "Sec-WebSocket-Version" not in headers or \
+                headers["Sec-WebSocket-Version"] != "13" or\
+                "Sec-WebSocket-Protocol" not in headers or\
+                headers["Sec-WebSocket-Protocol"] != "dota2ticker":
             print "bad protocol"
+            print "Got headers:"
+            for k, v in headers.iteritems():
+                print "{}:{}".format(k,v)
         response_key = WebsocketConnection.create_response(headers["Sec-WebSocket-Key"])
         shake = "HTTP/1.1 101 Switching Protocols\r\n"
         shake += "Upgrade: websocket\r\n" 
@@ -193,28 +205,29 @@ class WebsocketConnection:
 
     def receive(self):
         header_data = self.socket.recv(2)
-        header = WebsocketFrameHeader.decodeMinimalHeader(header_data)
+        header = WebsocketFrameHeader.decode_minimal_header(header_data)
         if header.payload_length == PAYLOAD_LENGTH_2_BYTE:
             header_data += self.socket.recv(2)
         elif header.payload_length == PAYLOAD_LENGTH_8_BYTE:
             header_data += self.socket.recv(8)
         if header.mask:
             header_data += self.socket.recv(4)
-        header = WebsocketFrameHeader.decodeFullHeader(header_data)
+        header = WebsocketFrameHeader.decode_full_header(header_data)
         payload = self.socket.recv(header.payload_length)
         data = header.decode(payload)
-        #continue recieving if message is fragmented
+        #continue receiving if message is fragmented
         message_finished = header.fin
         while not header.fin :
             (opcode, data_continued) = self.receive()
-            if(opcode != OP_CONTINUATION):
+            if opcode != OP_CONTINUATION:
                 print "fragmented message with multiple opcodes"
             data += data_continued
-        return (header.opcode, data)
+        return header.opcode, data
+
     def send(self, string, operation = OP_TEXT):
         #print "sending {}".format(data)
         if operation == OP_TEXT:
-            header = WebsocketFrameHeader.createTextHeader(len(string))
+            header = WebsocketFrameHeader.create_text_header(len(string))
         elif operation == OP_CONTINUATION or operation == OP_CLOSE:
             print "trying to send bad message (opcode {})".format(operation)
         else:
@@ -223,7 +236,8 @@ class WebsocketConnection:
             header.payload_length =  len(string)
         message = header.encode(string)
         return self.socket.send(message)
+
     def close(self):
-        message = WebsocketFrameHeader.createCloseHeader().encode()
+        message = WebsocketFrameHeader.create_close_header().encode("")
         self.socket.send(message)
         self.socket.close()
