@@ -75,6 +75,22 @@ def check(message):
         result = check_field(message, "Event")
     return result
 
+
+def UpdateMessage(update):
+    message = dict()
+    message["Type"] = MessageType.UPDATE
+    message["Time"] = update.time
+    message["Update"] = update.data
+    return message
+
+
+def EventMessage(event):
+    message = dict()
+    message["Type"] = MessageType.EVENT
+    message["Time"] = event.time
+    message["Event"] = event.data
+    return message
+
 next_id = 0
 
 

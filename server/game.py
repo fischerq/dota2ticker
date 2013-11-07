@@ -48,16 +48,17 @@ class Game:
             print "Error: added past update"
 
     def finish(self):
+        print "finished loading"
         self.complete = True
 
-    def add_event(self, message):
-        self.messages.append(message)
-        self.listener_event(message)
+    def add_event(self, event):
+        self.messages.append(event)
+        self.listener_event(event)
 
     def set_update_listener(self, listener):
         self.listener_update = listener
 
-    def set_message_listener(self, listener):
+    def set_event_listener(self, listener):
         self.listener_event = listener
 
 

@@ -9,6 +9,9 @@ from websocket import WebsocketServer
 from game import Game
 from gameloader import GameLoader
 
+from events import Event
+import simplejson as json
+
 
 class GameServer:
     def __init__(self, host, port_requests, port_listeners):
@@ -24,6 +27,7 @@ class GameServer:
         self.immediate_subscribers = []
         self.interval_subscribers = []
         self.event_subscribers = []
+        self.dump_file = open("data/dumps/{}.json".format(self.game_id), "w+")
 
     def handle_request_client(self, client):
         connection = DataConnection(client)
@@ -112,24 +116,25 @@ class GameServer:
         self.game_id = id_
         self.game = Game(id_)
         self.game.set_update_listener(self.register_update)
-        self.game.set_message_listener(self.register_event)
+        self.game.set_event_listener(self.register_event)
         game_loader = GameLoader(self.game_id, self.game)
         game_loader.load()
 
     def register_update(self, update):
-        message = dict()
-        message["Type"] = MessageType.UPDATE
-        message["Update"] = update.get_data()
+        message = Protocol.UpdateMessage(update)
         for client in self.immediate_subscribers:
             client.listener.send(message)
+        self.dump_message(message)
 
     def register_event(self, event):
-        message = dict()
-        message["Type"] = MessageType.EVENT
-        message["Event"] = event
+        message = Protocol.EventMessage(event)
         for client in self.event_subscribers:
-            if event["Importance"] > client.subscribe_threshold:
+            if event.importance > client.subscribe_threshold:
                 client.listener.send(message)
+        self.dump_message(message)
+
+    def dump_message(self, message):
+        self.dump_file.write("{}\n".format(json.dumps(message)))
 
 
 class Client:
