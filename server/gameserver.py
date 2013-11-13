@@ -27,7 +27,7 @@ class GameServer:
         self.immediate_subscribers = []
         self.interval_subscribers = []
         self.event_subscribers = []
-        self.dump_file = open("data/dumps/{}.json".format(self.game_id), "w+")
+
 
     def handle_request_client(self, client):
         connection = DataConnection(client)
@@ -50,7 +50,7 @@ class GameServer:
                 print "Bad request"
                 continue
             if not connection.connected:
-                break;
+                break
             run = self.process_request(client, request)
         
     def handle_listener_client(self, client):
@@ -102,39 +102,32 @@ class GameServer:
             answer["State"] = self.game.get_state(request["Time"])
             client.request.send(answer)
         elif request_type == MessageType.SUBSCRIBE:
-            self.immediate_subscribers.append(client)
-            self.event_subscribers.append(client)
             message = dict()
             message["Type"] = MessageType.STATE
-            message["State"] = self.game.latest_state.data
+            message["State"] = self.game.current_state.data
             client.listener.send(message)
+            self.immediate_subscribers.append(client)
+            self.event_subscribers.append(client)
         else:
             print "unknown message type {}".format(request_type)
         return True
     
-    def load_game(self, id_):
+    def select_game(self, id_, game):
         self.game_id = id_
-        self.game = Game()
-        self.game.set_update_listener(self.register_update)
-        self.game.set_event_listener(self.register_event)
-        game_loader = GameLoader(self.game_id, self.game)
-        game_loader.load()
+        self.game = game
+        self.game.add_update_listener(self.register_update)
+        self.game.add_event_listener(self.register_event)
 
     def register_update(self, update):
         message = Protocol.UpdateMessage(update)
         for client in self.immediate_subscribers:
             client.listener.send(message)
-        self.dump_message(message)
 
     def register_event(self, event):
         message = Protocol.EventMessage(event)
         for client in self.event_subscribers:
             if event.importance > client.subscribe_threshold:
                 client.listener.send(message)
-        self.dump_message(message)
-
-    def dump_message(self, message):
-        self.dump_file.write("{}\n".format(json.dumps(message)))
 
 
 class Client:
@@ -146,3 +139,23 @@ class Client:
         self.subscribe_interval = None
         self.subscribe_threshold = 0
         self.current_time = 0
+
+
+class GameDumper:
+    def __init__(self, id):
+        self.file = open("data/dumps/{}.json".format(id), "w+")
+
+    def select_game(self, game):
+        game.add_event_listener(self.dump_event)
+        game.add_update_listener(self.dump_update)
+
+    def dump_event(self, event):
+        message = Protocol.EventMessage(event)
+        self.dump_message(message)
+
+    def dump_update(self, update):
+        message = Protocol.UpdateMessage(update)
+        self.dump_message(message)
+
+    def dump_message(self, message):
+        self.file.write("{}\n".format(json.dumps(message)))

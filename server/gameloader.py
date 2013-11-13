@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 from threading import Thread
-from game import *
+from database import *
 import time
 import tarrasque
 
@@ -12,26 +12,19 @@ class GameLoader:
     def __init__(self, game_id, game):
         self.game = game
         self.game_id = game_id
-        pass
+        self.loaders = []
 
     def load(self):
         Thread(target=self.load_game).start()
 
     def load_game(self):
-        state = State(0)
-        self.game.initialise(state)
-
+        self.game.initialise()
         file_replay = "data/replays/{}.dem".format(self.game_id)
         replay = tarrasque.StreamBinding.from_file(file_replay, start_tick="start")
         last_state = None
-        last_tick = 0
-        current_tick = 0
-
-        loaders = []
-
         for tick in replay.iter_ticks():
-            last_tick = current_tick
             current_tick = replay.tick
+            update = Update(current_tick)
             if replay.info.game_state is not last_state:
                 event = StateChange(current_tick, replay.info.game_state)
                 self.game.add_event(event)
@@ -40,39 +33,30 @@ class GameLoader:
                 elif replay.info.game_state is "draft":
                     pass
                 elif replay.info.game_state is "pregame":
+                    print "Found pregame"
+                    print len(replay.players)
                     for player in replay.players:
+                        print player.index
                         if player.index is not None:
-                            loaders.append(PlayerLoader(player))
-
+                            print player.ehandle
+                            self.loaders.append(PlayerLoader(self, update, player))
+                    print update.changes
+                    print len(update.changes)
                 elif replay.info.game_state is "game":
                     pass
                 elif replay.info.game_state is "postgame":
                     pass
-
                 else:
                     print "strange state {}".format(replay.info.game_state)
                 last_state = replay.info.game_state
-
+                self.game.add_update(update)
+                update = Update(current_tick)
             #print chat information in every state
             chat_events = replay.chat_events
             if len(chat_events) > 0:
                 for chat_event in chat_events:
                     print "event {}".format(chat_event)
-                    player_ids = []
-                    if chat_event.playerid_1 is not None:
-                        player_ids.append(chat_event.playerid_1)
-                    if chat_event.playerid_2 is not None:
-                        player_ids.append(chat_event.playerid_2)
-                    if chat_event.playerid_3 is not None:
-                        player_ids.append(chat_event.playerid_3)
-                    if chat_event.playerid_4 is not None:
-                        player_ids.append(chat_event.playerid_4)
-                    if chat_event.playerid_5 is not None:
-                        player_ids.append(chat_event.playerid_5)
-                    if chat_event.playerid_6 is not None:
-                        player_ids.append(chat_event.playerid_6)
-                    self.game.add_event(ChatEvent(current_tick, chat_event.type, chat_event.value))
-
+                    self.add_chat_event(current_tick, chat_event)
             if replay.info.game_state is "start":
                 #message loading information
                 pass
@@ -82,40 +66,98 @@ class GameLoader:
             elif replay.info.game_state is "pregame" or replay.info.game_state is "game":
                 #update changes in game
                 #message big/relevant changes
-                pass
+                ids = []
+                for player in replay.players:
+                    ids.append("{}:{}".format(player.index, player.ehandle))
+                print ids
+                for loader in self.loaders:
+                    loader.check_changes(update)
             elif replay.info.game_state is "postgame":
                 pass
             elif replay.info.game_state is "end":
                 pass
+            if len(update.changes) > 0:
+                #print "added update"
+                self.game.add_update(update)
         self.game.finish()
+
+    def add_chat_event(self, current_tick, chat_event):
+        player_ids = []
+        if chat_event.playerid_1 is not None:
+            player_ids.append(chat_event.playerid_1)
+        if chat_event.playerid_2 is not None:
+            player_ids.append(chat_event.playerid_2)
+        if chat_event.playerid_3 is not None:
+            player_ids.append(chat_event.playerid_3)
+        if chat_event.playerid_4 is not None:
+            player_ids.append(chat_event.playerid_4)
+        if chat_event.playerid_5 is not None:
+            player_ids.append(chat_event.playerid_5)
+        if chat_event.playerid_6 is not None:
+            player_ids.append(chat_event.playerid_6)
+        self.game.add_event(ChatEvent(current_tick, chat_event.type, chat_event.value, player_ids))
 
 
 class ObjectLoader(object):
-    def __init__(self, game, update):
-        self.game = game
-        self.id = self.game.get_object_id()
-        self.last_tick = -1
-        update.changes.append
+    def __init__(self, loader, update):
+        self.loader = loader
+        self.id = self.loader.game.get_object_id()
+        self.last_time = -1
+        update.changes.append(Change(ChangeType.CREATE, self.id))
 
     def check_changes(self, update):
-        if tick > self.latest_tick:
-            saved_tick = self.last_tick
-            self.last_tick = tick
-            return self.put_changes(self.game.get_state(self.last_tick))
+        if update.time > self.last_time:
+            saved_time = self.last_time
+            self.last_time = update.time
+            update.changes.extend(self.changes(self.loader.game.current_state))
         else:
             print "tried to check bad changes"
-            return []
 
-    def put_changes(self, old):
+    def changes(self, state):
         print "Not implemented"
 
+
 class PlayerLoader(ObjectLoader):
-    def __init__(self, game, player):
-        super(PlayerLoader, self).__init__(self, game)
+    def __init__(self, loader, update, player):
+        super(PlayerLoader, self).__init__(loader, update)
         self.player = player
-        self.game = game
-        self.key = game.add
-    def put_changes(self, old):
+        update.changes.append(Change(ChangeType.SET, self.id, "team", self.player.team))
+        update.changes.append(Change(ChangeType.SET, self.id, "steam_id", self.player.steam_id))
+        update.changes.append(Change(ChangeType.SET, self.id, "name", self.player.name))
+        update.changes.append(Change(ChangeType.SET, self.id, "index", self.player.index))
+
+    def changes(self, state):
         changes = []
-        if old.position is not self.hero.position:
-            changes.append(Change())
+        if not self.player.exists:
+            print "Doesn't exist: {}".format(self.id)
+            if state.get(self.id, "connected") is not False:
+                changes.append(Change(ChangeType.SET, self.id, "connected", False))
+            return changes
+        else:
+            if state.get(self.id, "connected") is not True:
+                changes.append(Change(ChangeType.SET, self.id, "connected", True))
+        if state.get(self.id, "kills") is not self.player.kills:
+            changes.append(Change(ChangeType.SET, self.id, "kills", self.player.kills))
+        if state.get(self.id,"deaths") is not self.player.deaths:
+            changes.append(Change(ChangeType.SET, self.id, "deaths", self.player.deaths))
+        if state.get(self.id,"assists") is not self.player.assists:
+            changes.append(Change(ChangeType.SET, self.id, "assists", self.player.assists))
+        if state.get(self.id,"streak") is not self.player.streak:
+            changes.append(Change(ChangeType.SET, self.id, "streak", self.player.streak))
+        if state.get(self.id,"last_hits") is not self.player.last_hits:
+            changes.append(Change(ChangeType.SET, self.id, "last_hits", self.player.last_hits))
+        if state.get(self.id,"denies") is not self.player.denies:
+            changes.append(Change(ChangeType.SET, self.id, "denies", self.player.denies))
+        #if state.get(self.id,"reliable_gold") is not self.player.reliable_gold:
+        #    changes.append(Change(ChangeType.SET, self.id, "reliable_gold", self.player.reliable_gold))
+        #if state.get(self.id,"unreliable_gold") is not self.player.unreliable_gold:
+        #    changes.append(Change(ChangeType.SET, self.id, "unreliable_gold", self.player.unreliable_gold))
+        #if state.get(self.id,"earned_gold") is not self.player.earned_gold:
+        #    changes.append(Change(ChangeType.SET, self.id, "earned_gold", self.player.earned_gold))
+        #if state.get(self.id,"has_buyback") is not self.player.has_buyback:
+        #    changes.append(Change(ChangeType.SET, self.id, "has_buyback", self.player.has_buyback))
+        #if state.get(self.id,"buyback_cooldown_time") is not self.player.buyback_cooldown_time:
+        #    changes.append(Change(ChangeType.SET, self.id, "buyback_cooldown_time", self.player.buyback_cooldown_time))
+        #if state.get(self.id,"last_buyback_time") is not self.player.last_buyback_time:
+        #    changes.append(Change(ChangeType.SET, self.id, "last_buyback_time", self.player.last_buyback_time))
+        return changes

@@ -98,6 +98,12 @@ var MessageType = {
     EVENT : "EVENT" //Event
 };
 
+var EventType = {
+        STATECHANGE: "StateChange",
+        CHATEVENT: "ChatEvent"
+};
+
+
 var SubscribeMode = {
     IMMEDIATE : "IMMEDIATE",
     COMPRESSED : "COMPRESSED",

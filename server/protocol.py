@@ -80,7 +80,7 @@ def UpdateMessage(update):
     message = dict()
     message["Type"] = MessageType.UPDATE
     message["Time"] = update.time
-    message["Update"] = update.data
+    message["Update"] = update.get_data()
     return message
 
 

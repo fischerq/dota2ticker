@@ -6,7 +6,7 @@ $( document ).ready(function() {
         var listener_connection;
         var listener_confirmed = false;
         var client_id;
-        var game_id = 0;
+        var game_id = 303487989;
 
         var events = new Array();
         var events_display = $("#events");
@@ -25,12 +25,20 @@ $( document ).ready(function() {
 
         function updateEvents(){
             events_display.html("");
-            for (key in events){
+            for (var key in events){
+                console.log("updating ", events[key]);
                 var event = events[key];
                 if(event["Time"] < current_time - event_window)
                     continue;
                 var p = document.createElement("p");
-                p.innerHTML = event["Time"]+"("+event["Importance"]+"): "+event["Type"];
+                if(event["Type"] == EventType.STATECHANGE)
+                {
+                    p.innerHTML = event["Time"]+": Changed State to "+event["State"];
+                }
+                else
+                {
+                    p.innerHTML = "Event at "+event["Time"]+": "+event["Type"];
+                }
                 events_display.append(p);
             }
         }
