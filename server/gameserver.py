@@ -106,7 +106,7 @@ class GameServer:
             self.event_subscribers.append(client)
             message = dict()
             message["Type"] = MessageType.STATE
-            message["State"] = self.game.get_state(self.game.latest_update).get_data()
+            message["State"] = self.game.latest_state.data
             client.listener.send(message)
         else:
             print "unknown message type {}".format(request_type)
@@ -114,7 +114,7 @@ class GameServer:
     
     def load_game(self, id_):
         self.game_id = id_
-        self.game = Game(id_)
+        self.game = Game()
         self.game.set_update_listener(self.register_update)
         self.game.set_event_listener(self.register_event)
         game_loader = GameLoader(self.game_id, self.game)

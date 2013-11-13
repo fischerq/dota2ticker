@@ -26,6 +26,9 @@ class GameLoader:
         last_state = None
         last_tick = 0
         current_tick = 0
+
+        loaders = []
+
         for tick in replay.iter_ticks():
             last_tick = current_tick
             current_tick = replay.tick
@@ -37,7 +40,10 @@ class GameLoader:
                 elif replay.info.game_state is "draft":
                     pass
                 elif replay.info.game_state is "pregame":
-                    pass
+                    for player in replay.players:
+                        if player.index is not None:
+                            loaders.append(PlayerLoader(player))
+
                 elif replay.info.game_state is "game":
                     pass
                 elif replay.info.game_state is "postgame":
@@ -75,11 +81,41 @@ class GameLoader:
                 pass
             elif replay.info.game_state is "pregame" or replay.info.game_state is "game":
                 #update changes in game
-                #message big changes
+                #message big/relevant changes
                 pass
             elif replay.info.game_state is "postgame":
-
                 pass
             elif replay.info.game_state is "end":
                 pass
         self.game.finish()
+
+
+class ObjectLoader(object):
+    def __init__(self, game, update):
+        self.game = game
+        self.id = self.game.get_object_id()
+        self.last_tick = -1
+        update.changes.append
+
+    def check_changes(self, update):
+        if tick > self.latest_tick:
+            saved_tick = self.last_tick
+            self.last_tick = tick
+            return self.put_changes(self.game.get_state(self.last_tick))
+        else:
+            print "tried to check bad changes"
+            return []
+
+    def put_changes(self, old):
+        print "Not implemented"
+
+class PlayerLoader(ObjectLoader):
+    def __init__(self, game, player):
+        super(PlayerLoader, self).__init__(self, game)
+        self.player = player
+        self.game = game
+        self.key = game.add
+    def put_changes(self, old):
+        changes = []
+        if old.position is not self.hero.position:
+            changes.append(Change())
