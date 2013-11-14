@@ -148,6 +148,7 @@ class GameDumper:
     def select_game(self, game):
         game.add_event_listener(self.dump_event)
         game.add_update_listener(self.dump_update)
+        game.add_finish_listener(self.close)
 
     def dump_event(self, event):
         message = Protocol.EventMessage(event)
@@ -158,4 +159,7 @@ class GameDumper:
         self.dump_message(message)
 
     def dump_message(self, message):
-        self.file.write("{}\n".format(json.dumps(message)))
+        self.file.write("{}\n".format(json.dumps(message, separators=(',', ': '), indent=4)))
+
+    def close(self):
+        self.file.close()

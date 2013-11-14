@@ -13,6 +13,7 @@ class GameLoader:
         self.game = game
         self.game_id = game_id
         self.loaders = []
+        self.replay = None
 
     def load(self):
         Thread(target=self.load_game).start()
@@ -20,61 +21,54 @@ class GameLoader:
     def load_game(self):
         self.game.initialise()
         file_replay = "data/replays/{}.dem".format(self.game_id)
-        replay = tarrasque.StreamBinding.from_file(file_replay, start_tick="start")
+        self.replay = tarrasque.StreamBinding.from_file(file_replay, start_tick="start")
         last_state = None
-        for tick in replay.iter_ticks():
-            current_tick = replay.tick
+        for tick in self.replay.iter_ticks():
+            current_tick = self.replay.tick
             update = Update(current_tick)
-            if replay.info.game_state is not last_state:
-                event = StateChange(current_tick, replay.info.game_state)
+            if self.replay.info.game_state is not last_state:
+                event = StateChange(current_tick, self.replay.info.game_state)
                 self.game.add_event(event)
-                if replay.info.game_state is "loading":
+                if self.replay.info.game_state is "loading":
                     pass
-                elif replay.info.game_state is "draft":
+                elif self.replay.info.game_state is "draft":
                     pass
-                elif replay.info.game_state is "pregame":
+                elif self.replay.info.game_state is "pregame":
                     print "Found pregame"
-                    print len(replay.players)
-                    for player in replay.players:
-                        print player.index
+                    print len(self.replay.players)
+                    for player in self.replay.players:
                         if player.index is not None:
-                            print player.ehandle
                             self.loaders.append(PlayerLoader(self, update, player))
-                    print update.changes
-                    print len(update.changes)
-                elif replay.info.game_state is "game":
+                elif self.replay.info.game_state is "game":
                     pass
-                elif replay.info.game_state is "postgame":
+                elif self.replay.info.game_state is "postgame":
                     pass
                 else:
-                    print "strange state {}".format(replay.info.game_state)
-                last_state = replay.info.game_state
-                self.game.add_update(update)
-                update = Update(current_tick)
+                    print "strange state {}".format(self.replay.info.game_state)
+                last_state = self.replay.info.game_state
+                if len(update.changes) > 0:
+                    self.game.add_update(update)
+                    update = Update(current_tick)
             #print chat information in every state
-            chat_events = replay.chat_events
+            chat_events = self.replay.chat_events
             if len(chat_events) > 0:
                 for chat_event in chat_events:
                     print "event {}".format(chat_event)
                     self.add_chat_event(current_tick, chat_event)
-            if replay.info.game_state is "start":
+            if self.replay.info.game_state is "start":
                 #message loading information
                 pass
-            elif replay.info.game_state is "draft":
+            elif self.replay.info.game_state is "draft":
                 #message drafting
                 pass
-            elif replay.info.game_state is "pregame" or replay.info.game_state is "game":
+            elif self.replay.info.game_state is "pregame" or self.replay.info.game_state is "game":
                 #update changes in game
                 #message big/relevant changes
-                ids = []
-                for player in replay.players:
-                    ids.append("{}:{}".format(player.index, player.ehandle))
-                print ids
                 for loader in self.loaders:
                     loader.check_changes(update)
-            elif replay.info.game_state is "postgame":
+            elif self.replay.info.game_state is "postgame":
                 pass
-            elif replay.info.game_state is "end":
+            elif self.replay.info.game_state is "end":
                 pass
             if len(update.changes) > 0:
                 #print "added update"
@@ -116,26 +110,35 @@ class ObjectLoader(object):
     def changes(self, state):
         print "Not implemented"
 
+UnitTypes = enum("PLAYER")
+
 
 class PlayerLoader(ObjectLoader):
     def __init__(self, loader, update, player):
         super(PlayerLoader, self).__init__(loader, update)
         self.player = player
+        update.changes.append(Change(ChangeType.SET, self.id, "type", UnitTypes.PLAYER))
         update.changes.append(Change(ChangeType.SET, self.id, "team", self.player.team))
         update.changes.append(Change(ChangeType.SET, self.id, "steam_id", self.player.steam_id))
         update.changes.append(Change(ChangeType.SET, self.id, "name", self.player.name))
         update.changes.append(Change(ChangeType.SET, self.id, "index", self.player.index))
+        update.changes.append(Change(ChangeType.SET, self.id, "connected", True))
 
     def changes(self, state):
         changes = []
         if not self.player.exists:
-            print "Doesn't exist: {}".format(self.id)
-            if state.get(self.id, "connected") is not False:
+            index = state.get(self.id, "index")
+            found = False
+            for player in self.loader.replay.players:
+                if player.index is index:
+                    self.player = player
+                    changes.append(Change(ChangeType.SET, self.id, "connected", True))
+                    found = True
+            if not found and state.get(self.id, "connected") is True:
                 changes.append(Change(ChangeType.SET, self.id, "connected", False))
-            return changes
-        else:
-            if state.get(self.id, "connected") is not True:
-                changes.append(Change(ChangeType.SET, self.id, "connected", True))
+                return changes
+            elif not found:
+                return changes
         if state.get(self.id, "kills") is not self.player.kills:
             changes.append(Change(ChangeType.SET, self.id, "kills", self.player.kills))
         if state.get(self.id,"deaths") is not self.player.deaths:

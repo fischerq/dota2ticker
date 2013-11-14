@@ -8,6 +8,7 @@ class Game:
     def __init__(self):
         self.listeners_update = []
         self.listeners_event = []
+        self.listeners_finish = []
 
         self.current_state = State(0)
         self.snapshots = []
@@ -59,12 +60,16 @@ class Game:
     def add_update(self, update):
         self.updates.append(update)
         self.current_state.apply(update)
+        if self.current_state.time - self.snapshots[-1].time > SNAPSHOT_INTERVAL:
+            self.snapshots.append(self.current_state)
         for listener in self.listeners_update:
             listener(update)
 
     def finish(self):
         print "finished loading"
         self.complete = True
+        for listener in self.listeners_finish:
+            listener()
 
     def add_event(self, event):
         self.events.append(event)
@@ -77,3 +82,5 @@ class Game:
     def add_event_listener(self, listener):
         self.listeners_event.append(listener)
 
+    def add_finish_listener(self, listener):
+        self.listeners_finish.append(listener)

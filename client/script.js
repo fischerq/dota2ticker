@@ -8,26 +8,39 @@ $( document ).ready(function() {
         var client_id;
         var game_id = 303487989;
 
-        var events = new Array();
         var events_display = $("#events");
         var view_canvas = $("#view-canvas")[0];
         var view_context = view_canvas.getContext("2d");
         var view_data = $("#view-data");
         var images = new ImageMap();
         var current_time;
-        var event_window = 20;
-        //var game = new Game();
+        var event_window = 2000000;
+        var selected_unit = 3;
+        var game = new Game();
 
         function draw(){
             view_context.drawImage(images.getImage("minimap"), 0, 0);
-            console.log("drawing");
         }
 
+        function updateHeaderTitle(){
+            var title = $("#header-title");
+            console.log("updated header title");
+            title.html(game_id);
+        }
+        function refreshSelectedUnit(){
+            console.log("refreshing selected");
+            var state = game.current_state;
+            var data_display = $("#view-data");
+            if(state.get(selected_unit,"type") == UnitTypes.PLAYER){
+                var new_html=state.get(selected_unit, "name")+": "+state.get(selected_unit, "kills") +"/"+state.get(selected_unit, "deaths")+"/"
+                    +state.get(selected_unit, "assists")+" "+state.get(selected_unit, "last_hits")+"/"+state.get(selected_unit, "denies");
+                data_display.html(new_html);
+            }
+        }
         function updateEvents(){
             events_display.html("");
-            for (var key in events){
-                console.log("updating ", events[key]);
-                var event = events[key];
+            for (var key in game.events){
+                var event = game.events[key];
                 if(event["Time"] < current_time - event_window)
                     continue;
                 var p = document.createElement("p");
@@ -43,14 +56,27 @@ $( document ).ready(function() {
             }
         }
 
-        function handleState(state){
-            current_time = state["Time"];
+        function updateStateReset(){
+            current_time = game.current_state.time;
             //Display state
             images.setLoaded(draw);
             images.addImage("minimap", "data/minimap.png");
             images.load();
             console.log("started loading");
         }
+
+        function updateStateUpdate(update){
+            //update changed objects
+            var changed_selected = false;
+            for(var change in update["Changes"]){
+                if(update["Changes"][change]["ID"] == selected_unit)
+                    changed_selected = true;
+            }
+            if(changed_selected){
+                refreshSelectedUnit();
+            }
+        }
+
 
         var change_handlers = [];
 
@@ -88,6 +114,7 @@ $( document ).ready(function() {
                 game_id = message["GameID"];
                 requests_connection = new DataConnection(message["Host"], message["PortRequest"], handleRequestMessage, openRequestsConnection, closeRequestsConnection);
                 listener_connection = new DataConnection(message["Host"], message["PortListener"], handleListenerMessage, openListenerConnection, closeListenerConnection);
+                updateHeaderTitle();
             }
             else if(message["Type"] == MessageType.REJECT_CONNECTION){
                 alert("Connection Rejected");
@@ -142,15 +169,12 @@ $( document ).ready(function() {
                 console.log("unconfirmed listener channel");
                 return;
             }
-
-
             var subscribe = new Object();
             subscribe["Type"] = MessageType.SUBSCRIBE;
             subscribe["Time"] = time;
             subscribe["MessageDetail"] = message_detail;
             subscribe["Mode"] = mode;
             subscribe["Interval"] = interval;
-
             requests_connection.send(subscribe);
         }
         function closeRequestsConnection(e) {
@@ -183,35 +207,24 @@ $( document ).ready(function() {
             if(checkMessage(message)) {
                 switch(message["Type"]) {
                     case MessageType.STATE:
-                        handleState(message["State"]);
+                        game.resetState(message["Time"], message["State"]);
+                        updateStateReset();
                         break;
                     case MessageType.UPDATE:
-                        //check if time is ok
-                        if(message["Update"]["Origin"] < current_time)
+                        if(message["Time"] < game.current_state.time)
                             console.log("Received bad update: past");
                         else{
-
-                            //then call handlers for all changes
-                            var changes = message["Update"]["Changes"];
-                            for(var change in changes){
-                                //Apply change
-                            }
-                            current_time = message["Update"]["Time"];
+                            game.addUpdate(message["Update"]);
                         }
+                        updateStateUpdate(message["Update"]);
                         break;
                     case MessageType.EVENT:
                         //check event time
-                        addEvent(message["Event"]);
+                        game.addEvent(message["Event"]);
                         updateEvents();
                         break;
                 }
             }
-        }
-
-        function addEvent(event){
-            //Format event
-            events.push(event);
-            //hook up event
         }
 
         function closeListenerConnection(e) {

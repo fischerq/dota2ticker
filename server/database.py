@@ -19,8 +19,9 @@ class Change:
         data = dict()
         data["Type"] = self.type
         data["ID"] = self.id
-        data["Attribute"] = self.attribute
-        data["Value"] = self.value
+        if self.type is ChangeType.SET:
+            data["Attribute"] = self.attribute
+            data["Value"] = self.value
         return data
 
 
