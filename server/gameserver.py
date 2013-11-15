@@ -7,7 +7,7 @@ from utils import DataConnection
 from websocket import WebsocketServer
 
 from game import Game
-from gameloader import GameLoader
+from gameloader import ReplayLoader
 
 from events import Event
 import simplejson as json
@@ -112,22 +112,20 @@ class GameServer:
             print "unknown message type {}".format(request_type)
         return True
     
-    def select_game(self, id_, game):
+    def select_loader(self, id_, loader):
         self.game_id = id_
-        self.game = game
-        self.game.add_update_listener(self.register_update)
-        self.game.add_event_listener(self.register_event)
+        self.game = loader.game
+        loader.add_update_listener(self.register_update)
+        loader.add_event_listener(self.register_event)
 
     def register_update(self, update):
-        message = Protocol.UpdateMessage(update)
+
         for client in self.immediate_subscribers:
-            client.listener.send(message)
+            client.send_update(update)
 
     def register_event(self, event):
-        message = Protocol.EventMessage(event)
         for client in self.event_subscribers:
-            if event.importance > client.subscribe_threshold:
-                client.listener.send(message)
+            client.send_event(event)
 
 
 class Client:
@@ -136,19 +134,36 @@ class Client:
         self.listener = None
         self.request = None
         self.subscribe_mode = None
-        self.subscribe_interval = None
+        self.subscribe_interval = 10
         self.subscribe_threshold = 0
-        self.current_time = 0
+        self.last_time = 0
+        self.buffered_update = None
+
+    def send_update(self, update):
+        if self.buffered_update is None:
+            self.buffered_update = update
+        else:
+            self.buffered_update.merge(update)
+        if self.buffered_update.time >= self.last_time + self.subscribe_interval:
+            message = Protocol.UpdateMessage(self.buffered_update)
+            self.listener.send(message)
+            self.last_time = self.buffered_update.time
+            self.buffered_update = None
+
+    def send_event(self, event):
+        message = Protocol.EventMessage(event)
+        if event.importance > self.subscribe_threshold:
+                self.listener.send(message)
 
 
 class GameDumper:
     def __init__(self, id):
         self.file = open("data/dumps/{}.json".format(id), "w+")
 
-    def select_game(self, game):
-        game.add_event_listener(self.dump_event)
-        game.add_update_listener(self.dump_update)
-        game.add_finish_listener(self.close)
+    def select_loader(self, loader):
+        loader.add_event_listener(self.dump_event)
+        loader.add_update_listener(self.dump_update)
+        loader.add_finish_listener(self.close)
 
     def dump_event(self, event):
         message = Protocol.EventMessage(event)

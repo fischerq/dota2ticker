@@ -14,13 +14,11 @@ $( document ).ready(function() {
         var view_data = $("#view-data");
         var images = new ImageMap();
         var current_time;
-        var event_window = 2000000;
+        var event_window = 60*30;
         var selected_unit = 3;
         var game = new Game();
+        var icon_size = 20;
 
-        function draw(){
-            view_context.drawImage(images.getImage("minimap"), 0, 0);
-        }
 
         function updateHeaderTitle(){
             var title = $("#header-title");
@@ -28,10 +26,9 @@ $( document ).ready(function() {
             title.html(game_id);
         }
         function refreshSelectedUnit(){
-            console.log("refreshing selected");
             var state = game.current_state;
             var data_display = $("#view-data");
-            if(state.get(selected_unit,"type") == UnitTypes.PLAYER){
+            if(state.get(selected_unit,"type") == ObjectTypes.PLAYER){
                 var new_html=state.get(selected_unit, "name")+": "+state.get(selected_unit, "kills") +"/"+state.get(selected_unit, "deaths")+"/"
                     +state.get(selected_unit, "assists")+" "+state.get(selected_unit, "last_hits")+"/"+state.get(selected_unit, "denies");
                 data_display.html(new_html);
@@ -48,6 +45,10 @@ $( document ).ready(function() {
                 {
                     p.innerHTML = event["Time"]+": Changed State to "+event["State"];
                 }
+                else if(event["Type"] == EventType.TEXTEVENT)
+                {
+                    p.innerHTML = event["Time"]+": "+event["Text"];
+                }
                 else
                 {
                     p.innerHTML = "Event at "+event["Time"]+": "+event["Type"];
@@ -59,46 +60,77 @@ $( document ).ready(function() {
         function updateStateReset(){
             current_time = game.current_state.time;
             //Display state
-            images.setLoaded(draw);
+            images.setLoaded(function(){});
             images.addImage("minimap", "data/minimap.png");
-            images.load();
+
             console.log("started loading");
+        }
+
+        function filter_changes( changes, object_id, object_type, attribute, change_type){
+            var result = new Array();
+            for(var change in changes){
+                var accepted = true;
+                if(object_id != undefined)
+                    accepted = accepted && changes[change]["ID"] == object_id;
+                if(change_type != undefined)
+                    accepted = accepted && changes[change]["Type"] == change_type;
+                if (object_type != undefined){
+                    if(changes[change]["Type"] == ChangeTypes.CREATE)
+                        accepted = false;
+                    else
+                        accepted = accepted && game.current_state.get(changes[change]["ID"], "type") == object_type;
+                }
+                if (attribute != undefined)
+                    accepted = accepted && changes[change]["Attribute"] == attribute;
+                if (accepted)
+                    result.push(changes[change])
+            }
+            return result;
         }
 
         function updateStateUpdate(update){
             //update changed objects
-            var changed_selected = false;
-            for(var change in update["Changes"]){
-                if(update["Changes"][change]["ID"] == selected_unit)
-                    changed_selected = true;
-            }
-            if(changed_selected){
+            var selected_changes = filter_changes(update["Changes"], selected_unit);
+            if(selected_changes.length > 0)
                 refreshSelectedUnit();
+            var hero_name_changes = filter_changes(update["Changes"], undefined, ObjectTypes.HERO, "name");
+            for( var i in hero_name_changes){
+                if(hero_name_changes[i]["Value"] != null){
+                    var hero = hero_name_changes[i]["Value"];
+                    images.addImage(hero+"_icon", "data/icons/"+hero+"_icon.png");
+                    console.log("loaded hero ", hero);
+                }
+            }
+            //console.log(images, images.isReady())
+            if(!images.isReady()){
+                images.setLoaded(drawDisplay);
+                images.load();
+            }
+            else
+            {
+                drawDisplay();
             }
         }
 
+        function drawDisplay(){
+            view_context.drawImage(images.getImage("minimap"), 0, 0);
+            var players = game.current_state.get(0,"players");
+            //console.log("drawing players", players);
+            for(var player in players){
+                var hero_id = game.current_state.get(players[player], "hero");
+                if(hero_id != null)
+                {
+                    if(!game.current_state.get(hero_id, "is_alive"))
+                       continue;
+                    //console.log("Trying to draw ", game.current_state.get(hero_id, "name"));
+                    var icon = game.current_state.get(hero_id, "name")+"_icon";
+                    //console.log(game.current_state.get(hero_id, "name"), game.current_state.get(hero_id, "position").x, game.current_state.get(hero_id, "position").y, convertCoordinates(decodePosition(game.current_state.get(hero_id, "position")), parameters_minimap));
+                    var icon_position = convertCoordinates(decodePosition(game.current_state.get(hero_id, "position")), parameters_minimap);
+                    view_context.drawImage(images.getImage(icon), icon_position.x - (icon_size/2), icon_position.y-(icon_size/2), icon_size, icon_size);
+                }
 
-        var change_handlers = [];
-
-        function ChangeHandler(property, handler){
-            this.property = property;
-            this.handler = handler;
-
-            this.check = function(property){
-                //returns true if responsible for this property
-                return false;
-            }
-
-            this.execute = function(value){
-                this.handler(value);
             }
         }
-        var refresh_changes = [];
-
-        function refresh(refresh_changes){
-
-        }
-
 
         function openConnectionConnection(){
             var connection = new Object();
@@ -191,7 +223,7 @@ $( document ).ready(function() {
         }
 
         function handleListenerMessage(message) {
-            console.log("got listener notice ",message);
+            //console.log("got listener notice ",message);
             if(!listener_confirmed){
                 if(message["Type"] == MessageType.CONFIRM){
                     listener_confirmed= true;
@@ -211,12 +243,13 @@ $( document ).ready(function() {
                         updateStateReset();
                         break;
                     case MessageType.UPDATE:
-                        if(message["Time"] < game.current_state.time)
+                        if(message["Time"] < game.current_state.time){
                             console.log("Received bad update: past");
+                        }
                         else{
                             game.addUpdate(message["Update"]);
+                            updateStateUpdate(message["Update"]);
                         }
-                        updateStateUpdate(message["Update"]);
                         break;
                     case MessageType.EVENT:
                         //check event time

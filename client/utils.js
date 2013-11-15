@@ -25,7 +25,7 @@ function DataConnection(address, port, onmessage, onopen, onclose)
 	}
 
 	this.socket.onmessage = function (e){
-        console.log("recieved "+ e.data);
+        //console.log("received "+ e.data);
         var message = JSON.parse(e.data);
 		onmessage(message);
 	};
@@ -42,34 +42,51 @@ function ImageMap(loaded){
     this.loaded = loaded;
 
     var registerLoad = function(self, key){
-            self.loading_counter--;
-            console.log("Registered load");
-            self.keys.push(key);
-            if(self.loading_counter == 0){
-                self.loaded();
+        self.loading_counter--;
+        console.log("Registered load", key, self.loading_counter);
+        self.keys.push(key);
+        var loading_key = null;
+        for(var i in self.to_load){
+            if(self.to_load[i] == key){
+                loading_key = i;
+                break;
             }
-        };
+        }
+        if(loading_key != null)
+            self.to_load.splice(loading_key, 1);
+        if(self.loading_counter == 0){
+            self.loaded();
+        }
+    };
 
     this.addImage = function(key, file){
         this.loading_counter++;
         this.images[key] = new DynamicImage(file, function(){registerLoad(self, key);});
         this.to_load.push(key);
-        console.log(this.to_load);
+        console.log("adding image",this.to_load);
     };
 
     this.getImage = function(key){
-        console.log("getting", this, key);
-        return this.images[key].image;
+        if(key in this.images)
+            return this.images[key].image;
+        else{
+            console.log("failed getting", this, key);
+            return null;
+        }
     };
 
     this.load = function(){
-        for(key in this.to_load){
+        for(var key in this.to_load){
             this.images[this.to_load[key]].load();
         }
     };
 
     this.setLoaded = function(new_loaded){
         this.loaded = new_loaded;
+    }
+
+    this.isReady = function(){
+        return (this.loading_counter == 0);
     }
 }
 
@@ -100,7 +117,8 @@ var MessageType = {
 
 var EventType = {
         STATECHANGE: "StateChange",
-        CHATEVENT: "ChatEvent"
+        CHATEVENT: "ChatEvent",
+        TEXTEVENT: "TextEvent"
 };
 
 
@@ -158,6 +176,10 @@ function checkMessage(message) {
     else if (message["Type"] == MessageType.EVENT)
         result = checkField(message, "Event");
     return result;
+}
+
+function decodePosition(position){
+    return new Vector2(position["x"], position["y"]);
 }
 
 function Vector2(x,y){

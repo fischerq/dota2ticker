@@ -1,7 +1,8 @@
 from utils import enum
 
 EventTypes = enum("StateChange",
-                  "ChatEvent")
+                  "ChatEvent",
+                  "TextEvent")
 
 
 class Event:
@@ -24,4 +25,10 @@ def ChatEvent(time, type, value, player_ids):
     event.data["Type"] = type
     event.data["Value"] = value
     event.data["PlayerIDs"] = player_ids
+    return event
+
+
+def TextEvent(time, text):
+    event = Event(time, 10, EventTypes.TextEvent)
+    event.data["Text"] = text
     return event

@@ -27,8 +27,11 @@ function Game(){
     }
 }
 
-var UnitTypes = {
-    PLAYER : "PLAYER"
+var ObjectTypes = {
+    GAME : "GAME",
+    PLAYER : "PLAYER",
+    HERO : "HERO",
+    ILLUSION : "ILLUSION"
 };
 
 var ChangeTypes = {
@@ -66,6 +69,7 @@ function State(time){
                 if(id in this.data)
                     console.log("Creating already existing obj");
                 this.data[id] = new Object();
+                this.data[id]["type"] = update["Changes"][change]["Value"];
             }
             else if(type == ChangeTypes.SET){
                 this.data[id][update["Changes"][change]["Attribute"]] = update["Changes"][change]["Value"];

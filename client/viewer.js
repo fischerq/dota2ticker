@@ -12,5 +12,5 @@ parameters_minimap["offset_y"] = 0;
 function convertCoordinates(position, image_parameters){
     var x_result = (-WORLD_MIN_WIDTH + position.x) * image_parameters.scale_x + image_parameters.offset_x;
     var y_result = (WORLD_MAX_HEIGHT - position.y) * image_parameters.scale_y + image_parameters.offset_y;
-    return Vector2(x_result, y_result);
+    return new Vector2(x_result, y_result);
 }

@@ -1,15 +1,11 @@
-#!/usr/bin/env python
-from database import State, Update
+import copy
+from utils import  enum
 
 SNAPSHOT_INTERVAL = 1000
 
 
 class Game:
     def __init__(self):
-        self.listeners_update = []
-        self.listeners_event = []
-        self.listeners_finish = []
-
         self.current_state = State(0)
         self.snapshots = []
         self.snapshots.append(self.current_state)
@@ -58,29 +54,116 @@ class Game:
                 break
 
     def add_update(self, update):
-        self.updates.append(update)
+        if len(self.updates) > 0 and self.updates[-1].time == update.time:
+            self.updates[-1].extend(update.changes)
+        elif len(self.updates) == 0 or self.updates[-1].time < update.time:
+            if self.current_state.time - self.snapshots[-1].time > SNAPSHOT_INTERVAL:
+                self.snapshots.append(copy.deepcopy(self.current_state))
+            self.updates.append(update)
+        else:
+            print "adding past change"
         self.current_state.apply(update)
-        if self.current_state.time - self.snapshots[-1].time > SNAPSHOT_INTERVAL:
-            self.snapshots.append(self.current_state)
-        for listener in self.listeners_update:
-            listener(update)
 
     def finish(self):
         print "finished loading"
         self.complete = True
-        for listener in self.listeners_finish:
-            listener()
 
     def add_event(self, event):
         self.events.append(event)
-        for listener in self.listeners_event:
-            listener(event)
 
-    def add_update_listener(self, listener):
-        self.listeners_update.append(listener)
 
-    def add_event_listener(self, listener):
-        self.listeners_event.append(listener)
+ChangeType = enum(
+    "CREATE",
+    "SET",
+    "DELETE"
+)
 
-    def add_finish_listener(self, listener):
-        self.listeners_finish.append(listener)
+
+class Change:
+    def __init__(self, type, id, attribute = "", value = None):
+        self.type = type
+        self.id = id # object id
+        self.attribute = attribute  # (object,attribute)
+        self.value = value  # None new value
+
+    def get_data(self):
+        data = dict()
+        data["Type"] = self.type
+        data["ID"] = self.id
+        if self.type is ChangeType.CREATE:
+            data["Attribute"] = self.attribute
+        elif self.type is ChangeType.SET:
+            data["Attribute"] = self.attribute
+            data["Value"] = self.value
+        return data
+
+
+class Update:
+    def __init__(self, time, changes=[]):
+        self.time = time
+        self.changes = copy.copy(changes)
+
+    def merge(self, update2):
+        if self.time > update2.time:
+            return Update.merge(update2, self)
+        added_changes = []
+        for new_change in update2.changes:
+            found = False
+            for my_change in self.changes:
+                if my_change.type is ChangeType.SET and new_change.type is ChangeType.SET and \
+                    my_change.id is new_change.id and \
+                    my_change.attribute is new_change.attribute:  # same property changed
+                    my_change.value = new_change.value
+                    found = True
+                    break
+            if not found:
+                added_changes.append(new_change)
+        self.changes.extend(added_changes)
+        self.time = update2.time
+        return self
+
+    def append(self, change):
+        self.changes.append(change)
+
+    def extend(self, changes):
+        self.changes.extend(changes)
+
+    def get_data(self):
+        data = dict()
+        data["Time"] = self.time
+        data["Changes"] = []
+        for change in self.changes:
+            data["Changes"].append(change.get_data())
+        return data
+
+
+class State(dict):
+    def __init__(self, time):
+        self.time = time
+        self.data = dict()
+
+    def apply(self, update):
+        if update.time < self.time:
+            print "ERROR: Applied past update {},{}".format(update.time, self.time)
+        self.time = update.time
+        for change in update.changes:
+            if change.type is ChangeType.CREATE:
+                if change.id in self.data:
+                    print "Trying to create existing object"
+                self.data[change.id] = dict()
+                self.data[change.id]["type"] = change.attribute
+            elif change.type is ChangeType.SET:
+                self.data[change.id][change.attribute] = change.value
+            elif change.type is ChangeType.DELETE:
+                if change.id not in self.data:
+                    print "Trying to delete non-existing object"
+                del self.data[change.id]
+            else:
+                print "Bad change type"
+
+    def get(self, id, attribute):
+        if id not in self.data:
+            print "Bad Id {}".format(id)
+        if attribute not in self.data[id]:
+            return None
+        return self.data[id][attribute]

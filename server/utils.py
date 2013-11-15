@@ -19,6 +19,7 @@ class DataConnection:
 
     def send(self, data):
         message = json.dumps(data)
+        #print "sending {}".format(data)
         self.connection.send(message)
 
     def receive(self):
