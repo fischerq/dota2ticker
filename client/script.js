@@ -18,6 +18,7 @@ $( document ).ready(function() {
         var selected_unit = 3;
         var game = new Game();
         var icon_size = 20;
+        var refresh_interval = 2000;
 
 
         function updateHeaderTitle(){
@@ -34,7 +35,7 @@ $( document ).ready(function() {
                 data_display.html(new_html);
             }
         }
-        function updateEvents(){
+        function refreshEvents(){
             events_display.html("");
             for (var key in game.events){
                 var event = game.events[key];
@@ -103,16 +104,16 @@ $( document ).ready(function() {
             }
             //console.log(images, images.isReady())
             if(!images.isReady()){
-                images.setLoaded(drawDisplay);
+                images.setLoaded(refreshDisplay);
                 images.load();
             }
             else
             {
-                drawDisplay();
+                refreshDisplay();
             }
         }
 
-        function drawDisplay(){
+        function refreshDisplay(){
             view_context.drawImage(images.getImage("minimap"), 0, 0);
             var players = game.current_state.get(0,"players");
             //console.log("drawing players", players);
@@ -254,7 +255,7 @@ $( document ).ready(function() {
                     case MessageType.EVENT:
                         //check event time
                         game.addEvent(message["Event"]);
-                        updateEvents();
+                        refreshEvents();
                         break;
                 }
             }
@@ -283,5 +284,9 @@ $( document ).ready(function() {
 		requests.send($inputBox.val());
 		$inputBox.val("");
 	});
-
+    function refresh(){
+        refreshEvents();
+        refreshDisplay();
+    }
+    setTimeout(refresh(), refresh_interval);
 });

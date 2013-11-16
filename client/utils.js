@@ -1,7 +1,7 @@
 function DataConnection(address, port, onmessage, onopen, onclose)
 {
-	this.address = address
-	this.port = port
+	this.address = address;
+	this.port = port;
 	var host = "ws://" + this.address + ":" + this.port;
 	this.socket = new WebSocket(host, "dota2ticker");
 
@@ -18,11 +18,17 @@ function DataConnection(address, port, onmessage, onopen, onclose)
 
 	function nop(e){}
 
-	switch (arguments.length - 2) { //number of required arguments, no breaks intended
-    case 0:  onmessage = nop;
-    case 1:  onopen = nop;
-    case 2:  onclose = nop;
-	}
+    if (arguments.length - 2 == 0) {
+        onmessage = nop;
+        onopen = nop;
+        onclose = nop;
+    } else if (arguments.length - 2 == 1) {
+        onopen = nop;
+        onclose = nop;
+    } else if (arguments.length - 2 == 2) {
+        onclose = nop;
+    } else {
+    }
 
 	this.socket.onmessage = function (e){
         //console.log("received "+ e.data);
@@ -76,9 +82,10 @@ function ImageMap(loaded){
     };
 
     this.load = function(){
-        for(var key in this.to_load){
-            this.images[this.to_load[key]].load();
-        }
+        //console.log(this.to_load);
+        this.to_load.forEach(function (element) {
+            this.images[element].load();
+        });
     };
 
     this.setLoaded = function(new_loaded){
