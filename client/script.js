@@ -9,27 +9,69 @@ $( document ).ready(function() {
         var game_id = 303487989;
 
         var events_display = $("#events");
-        var view_canvas = $("#view-canvas")[0];
-        var view_context = view_canvas.getContext("2d");
+
         var view_data = $("#view-data");
-        var images = new ImageMap();
+        var images = {};
+
+        var minimap = new Kinetic.Stage({
+                container: 'minimap',
+                width: 300,
+                height: 300
+              });
+        var layers = {};
+
         var current_time;
         var event_window = 60*30;
-        var selected_unit = 3;
+        var selected_unit = -1;
         var game = new Game();
         var icon_size = 20;
         var refresh_interval = 2000;
 
+        function registerImage(name, img){
+            images[name] = new Kinetic.Image({
+                image: img
+                });
+            console.log("registered ",name, images[name]);
+        }
+    function refresh(){
+        refreshEvents();
+        refreshDisplay();
+        refreshSelectedUnit()
+    }
 
-        function updateHeaderTitle(){
+        function init(){
             var title = $("#header-title");
             console.log("updated header title");
             title.html(game_id);
+
+            layers["background"] = new Kinetic.Layer();
+            minimap.add(layers["background"]);
+            layers["buildings"] = new Kinetic.Layer();
+            minimap.add(layers["buildings"]);
+            layers["heroes"] = new Kinetic.Layer();
+            minimap.add(layers["heroes"]);
+            var imageLoader = new PxLoader();
+            imageLoader.addImage("data/minimap.png", "minimap");
+            imageLoader.addProgressListener(function(e){
+                registerImage("minimap", e.resource.img);
+                layers["background"].add(images["minimap"]);
+                console.log("added minimap");
+            }, "minimap");
+            imageLoader.addCompletionListener(refresh, "minimap");
+            imageLoader.start();
+
+            setTimeout(refresh, refresh_interval);
         }
+
+
         function refreshSelectedUnit(){
             var state = game.current_state;
             var data_display = $("#view-data");
-            if(state.get(selected_unit,"type") == ObjectTypes.PLAYER){
+            if(! selected_unit in state.data) {
+                selected_unit = -1;
+                data_display.html("Nothing selected");
+            }
+            else if(state.get(selected_unit,"type") == ObjectTypes.PLAYER){
                 var new_html=state.get(selected_unit, "name")+": "+state.get(selected_unit, "kills") +"/"+state.get(selected_unit, "deaths")+"/"
                     +state.get(selected_unit, "assists")+" "+state.get(selected_unit, "last_hits")+"/"+state.get(selected_unit, "denies");
                 data_display.html(new_html);
@@ -58,11 +100,28 @@ $( document ).ready(function() {
             }
         }
 
+        function refreshDisplay(){
+            if(! 0 in game.current_state.data)
+                return;
+            var players = game.current_state.get(0,"players");
+            for(var player in players){
+                var hero_id = game.current_state.get(players[player], "hero");
+                if(hero_id != null)
+                {
+                    if(!game.current_state.get(hero_id, "is_alive"))
+                       continue;
+                    //console.log("Trying to draw ", game.current_state.get(hero_id, "name"));
+                    var icon = game.current_state.get(hero_id, "name")+"_icon";
+                    //console.log(game.current_state.get(hero_id, "name"), game.current_state.get(hero_id, "position").x, game.current_state.get(hero_id, "position").y, convertCoordinates(decodePosition(game.current_state.get(hero_id, "position")), parameters_minimap));
+                    var icon_position = convertCoordinates(decodePosition(game.current_state.get(hero_id, "position")), parameters_minimap);
+                    images[icon].setPosition(icon_position.x - (icon_size/2), icon_position.y - (icon_size/2));
+                }
+            }
+            minimap.draw();
+        }
         function updateStateReset(){
             current_time = game.current_state.time;
             //Display state
-            images.setLoaded(function(){});
-            images.addImage("minimap", "data/minimap.png");
 
             console.log("started loading");
         }
@@ -89,48 +148,44 @@ $( document ).ready(function() {
             return result;
         }
 
+        function getAddHeroImage(id, name) {
+            //console.log("creating adder for ", name);
+            return function(e){
+                    registerImage(name, e.resource.img);
+                    images[name].setSize(icon_size, icon_size);
+                    /*images[name].createImageHitRegion(function() {
+                        var canvas = new Kinetic.Canvas(this.width, this.height);
+                        var context = canvas.getContext();
+                        context.drawImage(this.attrs.image, 0, 0);
+                    });*/
+                    //images[name].on("click", function(){selected_unit = id});
+                    layers["heroes"].add(images[name]);
+                };
+        }
+
         function updateStateUpdate(update){
-            //update changed objects
+            //update selected object if needed
             var selected_changes = filter_changes(update["Changes"], selected_unit);
             if(selected_changes.length > 0)
                 refreshSelectedUnit();
+            //load images if needed
+
+
             var hero_name_changes = filter_changes(update["Changes"], undefined, ObjectTypes.HERO, "name");
-            for( var i in hero_name_changes){
-                if(hero_name_changes[i]["Value"] != null){
-                    var hero = hero_name_changes[i]["Value"];
-                    images.addImage(hero+"_icon", "data/icons/"+hero+"_icon.png");
-                    console.log("loaded hero ", hero);
+            if(hero_name_changes.length > 0) {
+                var heroesLoader = new PxLoader();
+                for( var i in hero_name_changes){
+                    if(hero_name_changes[i]["Value"] != null){
+                        var icon = hero_name_changes[i]["Value"]+"_icon";
+                        heroesLoader.addImage("data/icons/"+hero_name_changes[i]["Value"]+"_icon.png", icon);
+                        heroesLoader.addProgressListener(getAddHeroImage(hero_name_changes["ID"], icon),icon);
+                    }
                 }
-            }
-            //console.log(images, images.isReady())
-            if(!images.isReady()){
-                images.setLoaded(refreshDisplay);
-                images.load();
+                heroesLoader.addCompletionListener(refreshDisplay);
+                heroesLoader.start();
             }
             else
-            {
                 refreshDisplay();
-            }
-        }
-
-        function refreshDisplay(){
-            view_context.drawImage(images.getImage("minimap"), 0, 0);
-            var players = game.current_state.get(0,"players");
-            //console.log("drawing players", players);
-            for(var player in players){
-                var hero_id = game.current_state.get(players[player], "hero");
-                if(hero_id != null)
-                {
-                    if(!game.current_state.get(hero_id, "is_alive"))
-                       continue;
-                    //console.log("Trying to draw ", game.current_state.get(hero_id, "name"));
-                    var icon = game.current_state.get(hero_id, "name")+"_icon";
-                    //console.log(game.current_state.get(hero_id, "name"), game.current_state.get(hero_id, "position").x, game.current_state.get(hero_id, "position").y, convertCoordinates(decodePosition(game.current_state.get(hero_id, "position")), parameters_minimap));
-                    var icon_position = convertCoordinates(decodePosition(game.current_state.get(hero_id, "position")), parameters_minimap);
-                    view_context.drawImage(images.getImage(icon), icon_position.x - (icon_size/2), icon_position.y-(icon_size/2), icon_size, icon_size);
-                }
-
-            }
         }
 
         function openConnectionConnection(){
@@ -147,7 +202,7 @@ $( document ).ready(function() {
                 game_id = message["GameID"];
                 requests_connection = new DataConnection(message["Host"], message["PortRequest"], handleRequestMessage, openRequestsConnection, closeRequestsConnection);
                 listener_connection = new DataConnection(message["Host"], message["PortListener"], handleListenerMessage, openListenerConnection, closeListenerConnection);
-                updateHeaderTitle();
+                init();
             }
             else if(message["Type"] == MessageType.REJECT_CONNECTION){
                 alert("Connection Rejected");
@@ -284,9 +339,5 @@ $( document ).ready(function() {
 		requests.send($inputBox.val());
 		$inputBox.val("");
 	});
-    function refresh(){
-        refreshEvents();
-        refreshDisplay();
-    }
-    setTimeout(refresh(), refresh_interval);
+
 });

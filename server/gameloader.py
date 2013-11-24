@@ -71,7 +71,6 @@ class ReplayLoader:
                 #message big/relevant changes
                 hero_alive_changes = self.filter_changes(object_type=ObjectTypes.HERO, attribute="is_alive")
                 for change in hero_alive_changes:
-                    print "alive is changing"
                     if change.value is False:
                         event = TextEvent(self.tick, "{} died".format(self.game.current_state.get(change.id, "name")))
                     else:
