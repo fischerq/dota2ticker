@@ -36,12 +36,14 @@ $( document ).ready(function() {
     function refresh(){
         refreshEvents();
         refreshDisplay();
-        refreshSelectedUnit()
+        refreshSelected();
+        refreshHeader();
+        setTimeout(refresh, refresh_interval);
     }
 
         function init(){
             var title = $("#header-title");
-            console.log("updated header title");
+            //console.log("updated header title");
             title.html(game_id);
 
             layers["background"] = new Kinetic.Layer();
@@ -63,17 +65,28 @@ $( document ).ready(function() {
             setTimeout(refresh, refresh_interval);
         }
 
-
-        function refreshSelectedUnit(){
+        function refreshHeader(){
+            var time= $("#time");
+            time.html(current_time);
+        }
+        function refreshSelected(){
             var state = game.current_state;
             var data_display = $("#view-data");
-            if(! selected_unit in state.data) {
+            //console.log("refreshSelected called");
+            if(!(selected_unit in state.data)) {
                 selected_unit = -1;
                 data_display.html("Nothing selected");
             }
             else if(state.get(selected_unit,"type") == ObjectTypes.PLAYER){
                 var new_html=state.get(selected_unit, "name")+": "+state.get(selected_unit, "kills") +"/"+state.get(selected_unit, "deaths")+"/"
                     +state.get(selected_unit, "assists")+" "+state.get(selected_unit, "last_hits")+"/"+state.get(selected_unit, "denies");
+                data_display.html(new_html);
+            }
+            else if(state.get(selected_unit,"type") == ObjectTypes.HERO){
+                //console.log("cant select heroes, bad");
+                //selected_unit = state.get(selected_unit, "player");
+                var new_html=state.get(selected_unit, "name")+"(Lvl "+state.get(selected_unit,"level")+"): HP "+state.get(selected_unit, "health") +"/"+state.get(selected_unit, "max_health")+"<br/>Mana: "
+                    +state.get(selected_unit, "mana")+"/"+state.get(selected_unit, "max_mana");
                 data_display.html(new_html);
             }
         }
@@ -101,17 +114,19 @@ $( document ).ready(function() {
         }
 
         function refreshDisplay(){
-            if(! 0 in game.current_state.data)
+            if(!(0 in game.current_state.data))
                 return;
             var players = game.current_state.get(0,"players");
             for(var player in players){
                 var hero_id = game.current_state.get(players[player], "hero");
                 if(hero_id != null)
                 {
-                    if(!game.current_state.get(hero_id, "is_alive"))
-                       continue;
-                    //console.log("Trying to draw ", game.current_state.get(hero_id, "name"));
                     var icon = game.current_state.get(hero_id, "name")+"_icon";
+                    if(!game.current_state.get(hero_id, "is_alive"))
+                       images[icon].hide();
+                    else
+                        images[icon].show();
+                    //console.log("Trying to draw ", game.current_state.get(hero_id, "name"));
                     //console.log(game.current_state.get(hero_id, "name"), game.current_state.get(hero_id, "position").x, game.current_state.get(hero_id, "position").y, convertCoordinates(decodePosition(game.current_state.get(hero_id, "position")), parameters_minimap));
                     var icon_position = convertCoordinates(decodePosition(game.current_state.get(hero_id, "position")), parameters_minimap);
                     images[icon].setPosition(icon_position.x - (icon_size/2), icon_position.y - (icon_size/2));
@@ -148,8 +163,16 @@ $( document ).ready(function() {
             return result;
         }
 
+        function getSetSelected(id){
+            //console.log("getting setSelected", id)
+            return function(){
+                //console.log("setting selected", id)
+                selected_unit = id;
+                refreshSelected();
+            }
+        }
         function getAddHeroImage(id, name) {
-            //console.log("creating adder for ", name);
+            //console.log("creating adder for ", id, name);
             return function(e){
                     registerImage(name, e.resource.img);
                     images[name].setSize(icon_size, icon_size);
@@ -158,16 +181,18 @@ $( document ).ready(function() {
                         var context = canvas.getContext();
                         context.drawImage(this.attrs.image, 0, 0);
                     });*/
-                    //images[name].on("click", function(){selected_unit = id});
+                    images[name].on("click", getSetSelected(id));
                     layers["heroes"].add(images[name]);
                 };
         }
 
         function updateStateUpdate(update){
+            current_time = update["Time"];
+
             //update selected object if needed
             var selected_changes = filter_changes(update["Changes"], selected_unit);
             if(selected_changes.length > 0)
-                refreshSelectedUnit();
+                refreshSelected();
             //load images if needed
 
 
@@ -178,7 +203,7 @@ $( document ).ready(function() {
                     if(hero_name_changes[i]["Value"] != null){
                         var icon = hero_name_changes[i]["Value"]+"_icon";
                         heroesLoader.addImage("data/icons/"+hero_name_changes[i]["Value"]+"_icon.png", icon);
-                        heroesLoader.addProgressListener(getAddHeroImage(hero_name_changes["ID"], icon),icon);
+                        heroesLoader.addProgressListener(getAddHeroImage(hero_name_changes[i]["ID"], icon),icon);
                     }
                 }
                 heroesLoader.addCompletionListener(refreshDisplay);
@@ -186,6 +211,8 @@ $( document ).ready(function() {
             }
             else
                 refreshDisplay();
+            refreshEvents();
+            refreshHeader();
         }
 
         function openConnectionConnection(){
