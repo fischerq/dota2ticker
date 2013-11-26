@@ -1,7 +1,23 @@
 import copy
-from utils import  enum
+from utils import enum
 
 SNAPSHOT_INTERVAL = 1000
+
+
+class UpdateIterator:
+    def __init__(self, game, time):
+        self.game = game
+        self.current = Update(time)
+        self.next = Update(time)
+        self.iterator = game.updates.__iter__()
+        while self.next is not None and self.next.time < self.current.time:
+            self.advance()
+
+    def advance(self):
+        try:
+            self.next = self.iterator.next()
+        except StopIteration:
+            self.next = None
 
 
 class Game:
@@ -52,6 +68,9 @@ class Game:
                 result.merge(update)
             else:
                 break
+
+    def update_iterator(self, time):
+        return UpdateIterator(self, time)
 
     def add_update(self, update):
         if len(self.updates) > 0 and self.updates[-1].time == update.time:

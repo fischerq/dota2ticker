@@ -3,26 +3,17 @@ var SNAPSHOT_INTERVAL = 1000;
 
 function Game(){
     this.events = new Array();
-    this.snapshots = new Array();
-    this.updates = new Array();
     this.current_state = new State();
 
-    this.resetState = function(time, state){
-        this.events = new Array();
-        this.snapshots = new Array();
-        this.updates = new Array();
-        this.current_state = new State();
+    this.setState = function(time, state) {
         this.current_state.set(time, state);
-        this.snapshots.push(this.current_state);
     }
 
-    this.addUpdate = function(update){
-        this.updates.push(update);
+    this.addUpdate = function(update) {
         this.current_state.apply(update);
-        if(this.current_state.time - this.snapshots[this.snapshots.length-1] > SNAPSHOT_INTERVAL)
-            this.snapshots.push(this.current_state);
     }
-    this.addEvent = function(event){
+
+    this.addEvent = function(event) {
         this.events.push(event);
     }
 }
@@ -40,7 +31,7 @@ var ChangeTypes = {
     DELETE : "DELETE"
 };
 
-function State(time){
+function State(){
     this.time = -1;
     this.data = new Object();
 

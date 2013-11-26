@@ -8,34 +8,22 @@ def enum(*sequential):
     return type('Enum', (), enums)
 
 import simplejson as json
-import websocket
-from websocket import WebsocketConnection
+from ws4py.websocket import WebSocket
 
 
-class DataConnection:
-    def __init__(self, websocket_connection):
-        self.connection = websocket_connection
-        self.connected = True
+class DataSocket(WebSocket):
+    def opened(self):
+        pass
 
-    def send(self, data):
-        message = json.dumps(data)
-        #print "sending {}".format(data)
-        self.connection.send(message)
+    def received_message(self, message):
+        if message.binary:
+            print "DataSocket received binary data - expecting only text"
+            return
+        else:
+            self.on_message(json.loads(message.data))
 
-    def receive(self):
-        (operation, message) = self.connection.receive()
-        if operation is websocket.OP_CLOSE:
-            self.connection.close()
-            self.connected = False
-            print "Remote closed"
-            return None
-        elif operation is not websocket.OP_TEXT:
-            print "DataConnection: received bad message {}".format(operation)
-            return None
-        print "{}: received {}".format(self.connection.port, message)
-        return json.loads(message)
+    def send_data(self, data):
+        self.send(json.dumps(data), False)
 
-    def close(self):
-        self.connection.close()
-        print "DataConnection: closed"
-        self.connected = False
+    def closed(self, code, reason=None):
+        pass

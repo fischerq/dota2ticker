@@ -1,44 +1,59 @@
 #!/usr/bin/env python
 
-from websocket import WebsocketServer
+from gevent import monkey; monkey.patch_all()
+from ws4py.server.geventserver import WSGIServer
+from ws4py.server.wsgiutils import WebSocketWSGIApplication
+
+# websocket import WebsocketServer
+from threading import Thread
 from threading import Lock
-from utils import DataConnection
+from utils import DataSocket
 
-import protocol
-from protocol import MessageType
+import protocols.connect as ConnectProtocol
 
 
-class ConnectionServer(WebsocketServer):
-    def __init__(self):
-        WebsocketServer.__init__(self, 29000, self.handle_client)
+class ConnectionApplication(WebSocketWSGIApplication):
+    def __init__(self, server):
+        super(ConnectionApplication, self).__init__(handler_cls=ConnectionSocket)
+        self.server = server
+
+    def make_websocket(self, sock, protocols, extensions, environ):
+        websocket = self.handler_cls(sock, self.server)
+        environ['ws4py.websocket'] = websocket
+        return websocket
+
+
+class ConnectionSocket(DataSocket):
+    def __init__(self, sock, server):
+        super(ConnectionSocket, self).__init__(sock=sock)
+        self.connection_server = server
+
+    def on_message(self, message):
+        if not ConnectProtocol.check(message):
+            print "Bad message"
+            print message["Type"]
+        elif message["Type"] == ConnectProtocol.Types.CONNECT:
+            game_server = self.connection_server.find_game_server(message)
+            if game_server is not None:
+                client_message = self.connection_server.create_client()
+            else:
+                client_message = ConnectProtocol.RejectConnectionMessage()
+            self.send_data(client_message)
+        else:
+            print "Not supported message: {}".format(message["Type"])
+        self.close()
+
+
+class ConnectionServer:
+    def __init__(self, address, port):
+        self.server = WSGIServer((address, port), ConnectionApplication(self))
         self.game_servers = []
         self.game_servers_lock = Lock()
-        self.start()
+        Thread(target=self.server.serve_forever).start()
 
     def add_game_server(self, game_server):
         with self.game_servers_lock:
             self.game_servers.append(game_server)
-        
-    def handle_client(self, client):
-        connection = DataConnection(client)
-        connect_message = connection.receive()
-        if (not protocol.check(connect_message)) or (connect_message["Type"] != MessageType.CONNECT):
-            print "Bad connection message"
-            print protocol.check(connect_message)
-            print connect_message["Type"]
-        else:
-            server = self.find_game_server(connect_message)
-            if server is not None:
-                client_message = server.create_client()
-            else:
-                client_message = ConnectionServer.reject_connection()
-            connection.send(client_message)
-        connection.close()
-    @staticmethod
-    def reject_connection():
-        message = dict()
-        message["Type"] = MessageType.REJECT_CONNECTION
-        return message
 
     def find_game_server(self, message):
         game_id = message["GameID"]

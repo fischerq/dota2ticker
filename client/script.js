@@ -1,10 +1,8 @@
 $( document ).ready(function() {
 	try {
         var connection_connection;
-        var requests_connection;
-        var requests_confirmed = false;
-        var listener_connection;
-        var listener_confirmed = false;
+        var connection;
+        var confirmed = false;
         var client_id;
         var game_id = 303487989;
 
@@ -20,7 +18,7 @@ $( document ).ready(function() {
               });
         var layers = {};
 
-        var current_time;
+        var current_time = -1;
         var event_window = 60*30;
         var selected_unit = -1;
         var game = new Game();
@@ -34,6 +32,7 @@ $( document ).ready(function() {
             console.log("registered ",name, images[name]);
         }
     function refresh(){
+        current_time = game.current_state.time;
         refreshEvents();
         refreshDisplay();
         refreshSelected();
@@ -73,22 +72,22 @@ $( document ).ready(function() {
             var state = game.current_state;
             var data_display = $("#view-data");
             //console.log("refreshSelected called");
+            var new_html = "";
             if(!(selected_unit in state.data)) {
                 selected_unit = -1;
-                data_display.html("Nothing selected");
+                new_html = "Nothing selected";
             }
             else if(state.get(selected_unit,"type") == ObjectTypes.PLAYER){
-                var new_html=state.get(selected_unit, "name")+": "+state.get(selected_unit, "kills") +"/"+state.get(selected_unit, "deaths")+"/"
+                new_html=state.get(selected_unit, "name")+": "+state.get(selected_unit, "kills") +"/"+state.get(selected_unit, "deaths")+"/"
                     +state.get(selected_unit, "assists")+" "+state.get(selected_unit, "last_hits")+"/"+state.get(selected_unit, "denies");
-                data_display.html(new_html);
             }
             else if(state.get(selected_unit,"type") == ObjectTypes.HERO){
                 //console.log("cant select heroes, bad");
                 //selected_unit = state.get(selected_unit, "player");
-                var new_html=state.get(selected_unit, "name")+"(Lvl "+state.get(selected_unit,"level")+"): HP "+state.get(selected_unit, "health") +"/"+state.get(selected_unit, "max_health")+"<br/>Mana: "
+                new_html=state.get(selected_unit, "name")+"(Lvl "+state.get(selected_unit,"level")+"): HP "+state.get(selected_unit, "health") +"/"+state.get(selected_unit, "max_health")+"<br/>Mana: "
                     +state.get(selected_unit, "mana")+"/"+state.get(selected_unit, "max_mana");
-                data_display.html(new_html);
             }
+            data_display.html(new_html);
         }
         function refreshEvents(){
             events_display.html("");
@@ -133,12 +132,6 @@ $( document ).ready(function() {
                 }
             }
             minimap.draw();
-        }
-        function updateStateReset(){
-            current_time = game.current_state.time;
-            //Display state
-
-            console.log("started loading");
         }
 
         function filter_changes( changes, object_id, object_type, attribute, change_type){
@@ -188,7 +181,7 @@ $( document ).ready(function() {
 
         function updateStateUpdate(update){
             current_time = update["Time"];
-
+            game = new Game();
             //update selected object if needed
             var selected_changes = filter_changes(update["Changes"], selected_unit);
             if(selected_changes.length > 0)
@@ -216,10 +209,10 @@ $( document ).ready(function() {
         }
 
         function openConnectionConnection(){
-            var connection = new Object();
-            connection["Type"] = MessageType.CONNECT;
-            connection["GameID"] = game_id;
-            connection_connection.send(connection);
+            var connectRequest = new Object();
+            connectRequest["Type"] = MessageType.CONNECT;
+            connectRequest["GameID"] = game_id;
+            connection_connection.send(connectRequest);
         }
 
         function handleConnectionMessage(message)
@@ -227,8 +220,7 @@ $( document ).ready(function() {
             if (message["Type"] == MessageType.CLIENT_INFO) {
                 client_id = message["ClientID"];
                 game_id = message["GameID"];
-                requests_connection = new DataConnection(message["Host"], message["PortRequest"], handleRequestMessage, openRequestsConnection, closeRequestsConnection);
-                listener_connection = new DataConnection(message["Host"], message["PortListener"], handleListenerMessage, openListenerConnection, closeListenerConnection);
+                connection = new DataConnection(message["Host"], message["Port"], handleMessage, openConnection, closeConnection);
                 init();
             }
             else if(message["Type"] == MessageType.REJECT_CONNECTION){
@@ -241,89 +233,33 @@ $( document ).ready(function() {
         }
 
 
-        function openRequestsConnection(e) {
-            console.log("requests connection opened.");
-            var registration = new Object();
-            registration["Type"] = MessageType.REGISTER;
-            registration["ClientID"] = client_id;
-            registration["GameID"] = game_id;
-            requests_connection.send(registration);
+        function openConnection(e) {
+            console.log("connection opened.");
+            var registerRequest = new Object();
+            registerRequest["Type"] = MessageType.REGISTER;
+            registerRequest["ClientID"] = client_id;
+            registerRequest["GameID"] = game_id;
+            connection.send(registerRequest);
         }
 
-        function handleRequestMessage(message) {
+        function handleMessage(message) {
             console.log("got request",message);
-            if (message["Type"] == MessageType.CONFIRM){
-                requests_confirmed = true;
-                console.log("confirmed requests");
-                if(listener_confirmed)
-                    requestSubscribe(0,0,SubscribeMode.IMMEDIATE);
-            }
-            else{
-                console.log("Received message on request channel: ", message);
-            }
-        }
-
-        function requestConfigure(setting, value) {
-            if(!requests_confirmed){
-                console.log("unconfirmed request channel");
-                return;
-            }
-
-            var configure = new Object();
-            configure["Type"] = MessageType.CONFIGURE;
-            configure["Setting"] = setting;
-            configure["Value"] = value;
-            requests_connection.send(configure);
-        }
-        function requestSubscribe(time, message_detail, mode, interval) {
-            if(!requests_confirmed){
-                console.log("unconfirmed request channel");
-                return;
-            }
-            else if(! listener_confirmed){
-                console.log("unconfirmed listener channel");
-                return;
-            }
-            var subscribe = new Object();
-            subscribe["Type"] = MessageType.SUBSCRIBE;
-            subscribe["Time"] = time;
-            subscribe["MessageDetail"] = message_detail;
-            subscribe["Mode"] = mode;
-            subscribe["Interval"] = interval;
-            requests_connection.send(subscribe);
-        }
-        function closeRequestsConnection(e) {
-            console.log("requests connection closed.");
-        }
-
-        function openListenerConnection(e) {
-            console.log("listener connection opened.");
-            var registration = new Object();
-            registration["Type"] = MessageType.REGISTER;
-            registration["ClientID"] = client_id;
-            registration["GameID"] = game_id;
-            listener_connection.send(registration);
-        }
-
-        function handleListenerMessage(message) {
-            //console.log("got listener notice ",message);
-            if(!listener_confirmed){
+            if(!confirmed){
                 if(message["Type"] == MessageType.CONFIRM){
-                    listener_confirmed= true;
+                    confirmed= true;
                     console.log("confirmed requests");
-                    if(requests_confirmed)
-                        requestSubscribe(0,0,SubscribeMode.IMMEDIATE)
+                    requestSubscribe(SubscribeMode.IMMEDIATE, 0);
                 }
                 else{
-                    console.log("unconfirmed listener channel received message");
+                    console.log("unconfirmed channel received message");
                 }
                 return;
             }
             if(checkMessage(message)) {
                 switch(message["Type"]) {
                     case MessageType.STATE:
-                        game.resetState(message["Time"], message["State"]);
-                        updateStateReset();
+                        game.setState(message["Time"], message["State"]);
+                        refresh();
                         break;
                     case MessageType.UPDATE:
                         if(message["Time"] < game.current_state.time){
@@ -341,10 +277,35 @@ $( document ).ready(function() {
                         break;
                 }
             }
+            else{
+                console.log("Received bad message", message);
+            }
+        }
+        function closeConnection(e) {
+             console.log("connection closed.");
         }
 
-        function closeListenerConnection(e) {
-                console.log("listener connection closed.");
+        function requestConfigure(setting, value) {
+            if(!confirmed){
+                console.log("unconfirmed request channel");
+                return;
+            }
+            var configure = new Object();
+            configure["Type"] = MessageType.CONFIGURE;
+            configure["Setting"] = setting;
+            configure["Value"] = value;
+            connection.send(configure);
+        }
+        function requestSubscribe(mode, time) {
+            if(!confirmed){
+                console.log("unconfirmed channel");
+                return;
+            }
+            var subscriptionMessage = new Object();
+            subscriptionMessage["Type"] = MessageType.SUBSCRIBE;
+            subscriptionMessage["Mode"] = mode;
+            subscriptionMessage["Time"] = time;
+            connection.send(subscriptionMessage);
         }
 
         //start connection server
