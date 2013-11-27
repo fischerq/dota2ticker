@@ -1,5 +1,5 @@
-from utils import enum
-from game import ChangeType, Change
+from server.libs.utils import enum
+from server.libs.game import ChangeType, Change
 
 
 class ObjectLoader(object):

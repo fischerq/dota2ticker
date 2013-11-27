@@ -10,13 +10,12 @@ def enum(*sequential):
 import simplejson as json
 from ws4py.websocket import WebSocket
 
-
 class DataSocket(WebSocket):
     def opened(self):
         pass
 
     def received_message(self, message):
-        if message.binary:
+        if not message.is_text:
             print "DataSocket received binary data - expecting only text"
             return
         else:

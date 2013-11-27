@@ -1,5 +1,5 @@
-from . import check_field
-from utils import enum
+from server.protocols import check_field
+from server.libs.utils import enum
 
 MessageTypes = enum(
     "REGISTER",  # C: ClientID, GameID
@@ -78,7 +78,7 @@ def UpdateMessage(update):
     message = dict()
     message["Type"] = MessageTypes.UPDATE
     message["Time"] = update.time
-    message["Update"] = update.get_data()
+    message["Update"] = update.serialize()
     return message
 
 

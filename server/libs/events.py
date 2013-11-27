@@ -1,4 +1,4 @@
-from utils import enum
+from server.libs.utils import enum
 
 EventTypes = enum("StateChange",
                   "ChatEvent",
@@ -13,6 +13,20 @@ class Event:
         self.data["Time"] = time
         self.data["Type"] = event_type
 
+    def serialize(self):
+        serialized = dict()
+        serialized["time"] = self.time
+        serialized["importance"] = self.importance
+        serialized["data"] = self.data
+        return serialized
+
+
+def DeserializeEvent(serialized):
+    event = Event(0,0,0)
+    event.time = serialized["time"]
+    event.importance = serialized["importance"]
+    event.data = serialized["data"]
+    return event
 
 def StateChange(time, state):
     event = Event(time, 10, EventTypes.StateChange)

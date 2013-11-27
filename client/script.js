@@ -217,15 +217,19 @@ $( document ).ready(function() {
 
         function handleConnectionMessage(message)
         {
-            if (message["Type"] == MessageType.CLIENT_INFO) {
+            if(message["Type"] == MessageType.GAME_AVAILABILITY){
+                if(message["Availability"] == AvailabilityType.AVAILABLE)
+                    console.log("Yay, game available. wait for connection info");
+                else if(message["Availability"] == AvailabilityType.PENDING)//Try again later
+                    setTimeout(function(){connection_connection = new DataConnection(server_address, connection_server_port, handleConnectionMessage, openConnectionConnection)}, 1000);
+                else if(message["Availability"] == AvailabilityType.UNAVAILABLE)
+                    alert("Game unavailable");
+            }
+            else if (message["Type"] == MessageType.CLIENT_INFO) {
                 client_id = message["ClientID"];
                 game_id = message["GameID"];
                 connection = new DataConnection(message["Host"], message["Port"], handleMessage, openConnection, closeConnection);
                 init();
-            }
-            else if(message["Type"] == MessageType.REJECT_CONNECTION){
-                alert("Connection Rejected");
-                //Try other server
             }
             else{
                 console.log("Unknown MessageType: ", message["Type"], message);

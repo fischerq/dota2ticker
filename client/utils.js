@@ -42,7 +42,7 @@ function DataConnection(address, port, onmessage, onopen, onclose)
 var MessageType = {
     CONNECT : "CONNECT", //GameID
     CLIENT_INFO : "CLIENT_INFO", //Host, PortRequest, PortListener, ClientID
-    REJECT_CONNECTION : "REJECT_CONNECTION", //
+    GAME_AVAILABILITY : "GAME_AVAILABILITY", //Availability
     REGISTER : "REGISTER", //ClientID, GameID
     CONFIRM : "CONFIRM", //Data
     CONFIGURE : "CONFIGURE", //Setting, Value
@@ -59,6 +59,11 @@ var EventType = {
         TEXTEVENT: "TextEvent"
 };
 
+var AvailabilityType = {
+    AVAILABLE: "AVAILABLE",
+    PENDING: "PENDING",
+    UNAVAILABLE: "UNAVAILABLE"
+};
 
 var SubscribeMode = {
     IMMEDIATE : "IMMEDIATE",

@@ -1,10 +1,16 @@
-from . import check_field
-from utils import enum
+from server.protocols import check_field
+from server.libs.utils import enum
 
 MessageTypes = enum(
     "CONNECT",  # C: GameID
-    "CLIENT_INFO",  # S: Host, PortRequest, PortListener, ClientID
-    "REJECT_CONNECTION"  # S:
+    "GAME_AVAILABILITY",  # S: Availability
+    "CLIENT_INFO"  # S: Host, PortRequest, PortListener, ClientID
+)
+
+AvailabilityStates = enum(
+    "AVAILABLE",
+    "PENDING",
+    "UNAVAILABLE"
 )
 
 
@@ -21,14 +27,15 @@ def check(message):
         result = check_field(message, "Host") and\
             check_field(message, "Port") and \
             check_field(message, "ClientID")
-    elif message["Type"] is MessageTypes.REJECT_CONNECTION:
-        result = True
+    elif message["Type"] is MessageTypes.GAME_AVAILABILITY:
+        result = check_field(message, "Availability")
     return result
 
 
-def RejectConnectionMessage():
+def GameAvailabilityMessage(availability):
     message = dict()
-    message["Type"] = MessageTypes.REJECT_CONNECTION
+    message["Type"] = MessageTypes.GAME_AVAILABILITY
+    message["Availability"] = availability
     return message
 
 

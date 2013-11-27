@@ -1,5 +1,5 @@
 import copy
-from utils import enum
+from server.libs.utils import enum
 
 SNAPSHOT_INTERVAL = 1000
 
@@ -105,7 +105,7 @@ class Change:
         self.attribute = attribute  # (object,attribute)
         self.value = value  # None new value
 
-    def get_data(self):
+    def serialize(self):
         data = dict()
         data["Type"] = self.type
         data["ID"] = self.id
@@ -115,6 +115,15 @@ class Change:
             data["Attribute"] = self.attribute
             data["Value"] = self.value
         return data
+
+
+def DeserializeChange(change):
+    if change["Type"] is ChangeType.CREATE:
+        return Change(change["Type"], change["ID"], change["Attribute"])
+    elif change["Type"] is ChangeType.SET:
+        return Change(change["Type"], change["ID"], change["Attribute"], change["Value"])
+    else:
+        return Change(change["Type"], change["ID"])
 
 
 class Update:
@@ -147,14 +156,20 @@ class Update:
     def extend(self, changes):
         self.changes.extend(changes)
 
-    def get_data(self):
+    def serialize(self):
         data = dict()
         data["Time"] = self.time
         data["Changes"] = []
         for change in self.changes:
-            data["Changes"].append(change.get_data())
+            data["Changes"].append(change.serialize())
         return data
 
+def DeserializeUpdate(serialized):
+    update = Update(serialized["Time"])
+    update.changes = []
+    for change in serialized["Changes"]:
+        update.changes.append(DeserializeChange(change))
+    return update
 
 class State(dict):
     def __init__(self, time):

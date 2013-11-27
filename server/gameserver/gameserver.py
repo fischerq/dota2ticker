@@ -1,14 +1,17 @@
 #!/usr/bin/env python
 
-from gevent import monkey; monkey.patch_all()
+from gevent import monkey; monkey.patch_all(os=False)
 from ws4py.server.geventserver import WSGIServer
 from ws4py.server.wsgiutils import WebSocketWSGIApplication
 from threading import Lock
 from threading import Thread
-from utils import DataSocket
+from server.libs.utils import DataSocket
 
-import protocols.game as GameProtocol
-import protocols.connect as ConnectProtocol
+from server.protocols import game as GameProtocol
+from server.protocols import connect as ConnectProtocol
+from server import protocols as Protocols
+
+from server.libs.game import Game
 
 
 class GameApplication(WebSocketWSGIApplication):
@@ -64,13 +67,15 @@ PAST_SEND_INTERVAL = 0.1 # in seconds
 TIME_PER_TICK = 1.0/30
 import time
 
+
 class GameServer:
-    def __init__(self, host, port):
+    def __init__(self, host, port, game_id):
         self.host = host
+        self.port = port
         self.clients = []
         self.clients_lock = Lock()
-        self.game_id = 0
-        self.game = None
+        self.game_id = game_id
+        self.game = Game()
         self.server = WSGIServer((host, port), GameApplication(self))
         Thread(target=self.server.serve_forever).start()
         self.subscribers = dict()
@@ -78,6 +83,7 @@ class GameServer:
         self.subscribers["Past"] = []
         self.subscribers["Event"] = []
         Thread(target=self.serve_past_subscribers).start()
+        print "Started game server on {}, {}".format(host, port)
 
     def serve_past_subscribers(self):
         while True:
@@ -100,19 +106,13 @@ class GameServer:
         return None
 
     def create_client(self):
-        client = Client(GameProtocol.generate_id())
+        client = Client(Protocols.generate_id())
         with self.clients_lock:
             self.clients.append(client)
         return ConnectProtocol.ClientInfoMessage(self.host, self.port, client.id, self.game_id)
     
     def provides_game(self, game_id):
         return self.game_id == game_id
-
-    def set_loader(self, id_, loader):
-        self.game_id = id_
-        self.game = loader.game
-        loader.add_update_listener(self.register_update)
-        loader.add_event_listener(self.register_event)
 
     def add_subscriber(self, client, mode, time):
         self.subscribers["Event"].append(client)
@@ -122,10 +122,12 @@ class GameServer:
             self.subscribers["Past"].append(client, self.game.update_iterator(time))
 
     def register_update(self, update):
+        self.game.add_update(update)
         for client in self.subscribers["Current"]:
             client.send_update(update)
 
     def register_event(self, event):
+        self.game.add_event(event)
         for client in self.subscribers["Event"]:
             client.send_event(event)
 
@@ -155,30 +157,3 @@ class Client:
         message = GameProtocol.EventMessage(event)
         if event.importance > self.subscribe_threshold:
                 self.connection.send(message)
-
-
-import simplejson as json
-
-
-class GameDumper:
-    def __init__(self, id):
-        self.file = open("data/dumps/{}.json".format(id), "w+")
-
-    def select_loader(self, loader):
-        loader.add_event_listener(self.dump_event)
-        loader.add_update_listener(self.dump_update)
-        loader.add_finish_listener(self.close)
-
-    def dump_event(self, event):
-        message = GameProtocol.EventMessage(event)
-        self.dump_message(message)
-
-    def dump_update(self, update):
-        message = GameProtocol.UpdateMessage(update)
-        self.dump_message(message)
-
-    def dump_message(self, message):
-        self.file.write("{}\n".format(json.dumps(message, separators=(',', ': '), indent=4)))
-
-    def close(self):
-        self.file.close()
