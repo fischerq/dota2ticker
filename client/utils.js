@@ -66,9 +66,8 @@ var AvailabilityType = {
 };
 
 var SubscribeMode = {
-    IMMEDIATE : "IMMEDIATE",
-    COMPRESSED : "COMPRESSED",
-    FIXED : "FIXED"
+    CURRENT: "CURRENT",
+    PAST : "PAST"
 };
 
 function checkField(message, field) {

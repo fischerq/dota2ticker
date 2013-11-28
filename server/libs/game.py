@@ -99,9 +99,9 @@ ChangeType = enum(
 
 
 class Change:
-    def __init__(self, type, id, attribute = "", value = None):
+    def __init__(self, type, id, attribute="", value=None):
         self.type = type
-        self.id = id # object id
+        self.id = id  # object id
         self.attribute = attribute  # (object,attribute)
         self.value = value  # None new value
 
@@ -109,19 +109,20 @@ class Change:
         data = dict()
         data["Type"] = self.type
         data["ID"] = self.id
-        if self.type is ChangeType.CREATE:
+        if self.type == ChangeType.CREATE:
             data["Attribute"] = self.attribute
-        elif self.type is ChangeType.SET:
+        elif self.type == ChangeType.SET:
             data["Attribute"] = self.attribute
             data["Value"] = self.value
         return data
 
 
 def DeserializeChange(change):
-    if change["Type"] is ChangeType.CREATE:
+    if change["Type"] == ChangeType.CREATE:
         return Change(change["Type"], change["ID"], change["Attribute"])
-    elif change["Type"] is ChangeType.SET:
-        return Change(change["Type"], change["ID"], change["Attribute"], change["Value"])
+    elif change["Type"] == ChangeType.SET:
+        produced = Change(change["Type"], change["ID"], change["Attribute"], change["Value"])
+        return produced
     else:
         return Change(change["Type"], change["ID"])
 
@@ -171,6 +172,7 @@ def DeserializeUpdate(serialized):
         update.changes.append(DeserializeChange(change))
     return update
 
+
 class State(dict):
     def __init__(self, time):
         self.time = time
@@ -181,19 +183,20 @@ class State(dict):
             print "ERROR: Applied past update {},{}".format(update.time, self.time)
         self.time = update.time
         for change in update.changes:
-            if change.type is ChangeType.CREATE:
+            if change.type == ChangeType.CREATE:
                 if change.id in self.data:
                     print "Trying to create existing object"
                 self.data[change.id] = dict()
                 self.data[change.id]["type"] = change.attribute
-            elif change.type is ChangeType.SET:
+            elif change.type == ChangeType.SET:
                 self.data[change.id][change.attribute] = change.value
-            elif change.type is ChangeType.DELETE:
+            elif change.type == ChangeType.DELETE:
                 if change.id not in self.data:
                     print "Trying to delete non-existing object"
                 del self.data[change.id]
             else:
                 print "Bad change type"
+                print update.serialize()
 
     def get(self, id, attribute):
         if id not in self.data:

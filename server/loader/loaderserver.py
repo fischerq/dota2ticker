@@ -1,39 +1,44 @@
+import server.protocols.loader as ServerProtocol
 import simplejson as json
 from threading import Thread
 import socket
-import os
 
 
 class LoaderServer:
     def __init__(self, game_id, port):
-        print "a"
         self.game_id = game_id
-        Thread(self.accept_listeners(port)).start()
+        self.port = port
+        Thread(target=self.accept_listeners).start()
         self.listeners = []
-        print "a"
 
-    def accept_listeners(self, port):
+    def accept_listeners(self):
         server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        server.bind(("localhost", port))
+        server.bind(("localhost", self.port))
         server.listen(5)
         while True:
             conn, addr = server.accept()
             data = conn.recv(1024)
-            msg = data.split(" ")
-            if len(msg) is 2 and msg[0] is "LISTEN" and msg[1] is self.game_id:
-                conn.sendall("ACCEPT")
+            message = ServerProtocol.parse_message(data)
+            if ServerProtocol.check(message) \
+                and message["Type"] is ServerProtocol.MessageTypes.LISTEN \
+                and message["GameID"] == self.game_id:
+                print "Accepted listener for loader {}".format(self.game_id)
+                conn.sendall(ServerProtocol.AcceptedMessage())
                 self.listeners.append(conn)
             else:
-                conn.sendall("DENIED")
+                print message
+                conn.sendall(ServerProtocol.RejectedMessage())
                 conn.close()
 
     def send_event(self, event):
-        msg = "EVENT {}".format(json.dumps(event.serialize()))
+        serialized = json.dumps(event.serialize())
+        msg = "EVENT {} {}".format(len(serialized), serialized)
         for listener in self.listeners:
             listener.sendall(msg)
 
     def send_update(self, update):
-        msg = "UPDATE {}".format(json.dumps(update.serialize()))
+        serialized = json.dumps(update.serialize())
+        msg = "UPDATE {} {}".format(len(serialized), serialized)
         for listener in self.listeners:
             listener.sendall(msg)
 

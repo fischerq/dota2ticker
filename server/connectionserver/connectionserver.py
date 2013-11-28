@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from gevent import monkey; monkey.patch_all(os=False)
+from gevent import monkey; monkey.patch_all()
 from ws4py.server.geventserver import WSGIServer
 from ws4py.server.wsgiutils import WebSocketWSGIApplication
 from gevent.server import StreamServer
@@ -36,11 +36,10 @@ class ConnectionSocket(DataSocket):
             availability, game_server = self.connection_server.find_game_server(message)
             self.send_data(ConnectProtocol.GameAvailabilityMessage(availability))
             if availability is ConnectProtocol.AvailabilityStates.AVAILABLE:
-                self.send_data(game_server.create_client())
+                self.send_data(ConnectProtocol.ClientInfoMessage(game_server["host"], game_server["port"], game_server["game_id"]))
         else:
             print "Not supported message: {}".format(message["Type"])
         self.close()
-
 
 
 class ConnectionServer:
@@ -56,10 +55,10 @@ class ConnectionServer:
         self.registration_server.start()
 
     def find_game_server(self, message):
-        game_id = message["GameID"]
+        game_id = int(message["GameID"])
         server = None
         for game_server in self.game_servers:
-            if game_server["game_id"] is game_id:
+            if game_server["game_id"] == game_id:
                 return ConnectProtocol.AvailabilityStates.AVAILABLE, game_server
         if server is None:
             self.create_game_server(game_id)

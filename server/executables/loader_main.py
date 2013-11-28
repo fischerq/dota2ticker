@@ -10,11 +10,7 @@ registration_port = int(sys.argv[3])
 print "Created Loader for game {}, communicating on file {}, registering at {}".format(game_id, loader_port, registration_port)
 
 loader_server = LoaderServer(game_id, loader_port)
-print "a"
 loader = ReplayLoader(game_id, loader_server)
-print "b"
 registration_proxy = RegistrationProxy(registration_port)
-print "c"
-registration_proxy.add_loader(loader)
-print "d"
+registration_proxy.add_loader(loader_server)
 loader.load()

@@ -39,12 +39,10 @@ def GameAvailabilityMessage(availability):
     return message
 
 
-def ClientInfoMessage(host, port, id, game_id):
+def ClientInfoMessage(host, port, game_id):
     message = dict()
     message["Type"] = MessageTypes.CLIENT_INFO
     message["Host"] = host
     message["Port"] = port
-    message["ClientID"] = id
-    message["ClientID"] = id
     message["GameID"] = game_id
     return message

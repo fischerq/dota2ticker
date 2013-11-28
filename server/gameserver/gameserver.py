@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from gevent import monkey; monkey.patch_all(os=False)
+from gevent import monkey; monkey.patch_all()
 from ws4py.server.geventserver import WSGIServer
 from ws4py.server.wsgiutils import WebSocketWSGIApplication
 from threading import Lock
@@ -45,7 +45,7 @@ class GameSocket(DataSocket):
                 response = GameProtocol.ErrorMessage("Game not provided")
                 print "Bad registration, game not provided"
             else:
-                self.client = self.server.find_client(message["ClientID"])
+                self.client = self.server.create_client()
                 self.client.connection = self
                 self.registered = True
                 response = GameProtocol.ConfirmMessage()
@@ -54,10 +54,11 @@ class GameSocket(DataSocket):
             if message_type == GameProtocol.MessageTypes.CONFIGURE:
                 pass
             elif message_type == GameProtocol.MessageTypes.GETSTATE:
-                response = GameProtocol.StateMessage(self.server.get_state(message["Time"]))
+                response = GameProtocol.StateMessage(self.server.game.get_state(message["Time"]))
             elif message_type == GameProtocol.MessageTypes.SUBSCRIBE:
+                print message
                 self.server.add_subscriber(self.client, message["Mode"], message["Time"])
-                response = GameProtocol.StateMessage(self.server.get_state(message["Time"]))
+                response = GameProtocol.StateMessage(self.server.game.get_state(message["Time"]))
             else:
                 print "Unknown message type {}".format(message_type)
         self.send_data(response)
@@ -109,16 +110,16 @@ class GameServer:
         client = Client(Protocols.generate_id())
         with self.clients_lock:
             self.clients.append(client)
-        return ConnectProtocol.ClientInfoMessage(self.host, self.port, client.id, self.game_id)
+        return client
     
     def provides_game(self, game_id):
         return self.game_id == game_id
 
     def add_subscriber(self, client, mode, time):
         self.subscribers["Event"].append(client)
-        if mode is GameProtocol.SubscribeModes.CURRENT:
+        if mode == GameProtocol.SubscribeModes.CURRENT:
             self.subscribers["Current"].append(client)
-        elif mode is GameProtocol.SubscribeModes.PAST:
+        elif mode == GameProtocol.SubscribeModes.PAST:
             self.subscribers["Past"].append(client, self.game.update_iterator(time))
 
     def register_update(self, update):
@@ -149,11 +150,11 @@ class Client:
             self.buffered_update.merge(update)
         if self.buffered_update.time >= self.last_time + self.subscribe_interval:
             message = GameProtocol.UpdateMessage(self.buffered_update)
-            self.connection.send(message)
+            self.connection.send_data(message)
             self.last_time = self.buffered_update.time
             self.buffered_update = None
 
     def send_event(self, event):
         message = GameProtocol.EventMessage(event)
         if event.importance > self.subscribe_threshold:
-                self.connection.send(message)
+                self.connection.send_data(message)

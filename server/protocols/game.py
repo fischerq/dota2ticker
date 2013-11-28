@@ -28,8 +28,7 @@ def check(message):
         return False
     result = True
     if message["Type"] is MessageTypes.REGISTER:
-        result = check_field(message, "ClientID") and\
-            check_field(message, "GameID")
+        result = check_field(message, "GameID")
     elif message["Type"] is MessageTypes.CONFIRM:
         result = check_field(message, "Data")
     elif message["Type"] is MessageTypes.CONFIGURE:
@@ -40,8 +39,6 @@ def check(message):
     elif message["Type"] is MessageTypes.SUBSCRIBE:
         result = check_field(message, "Time") and\
             check_field(message, "Mode")
-        if message["Mode"] is SubscribeModes.FIXED:
-            result = result and check_field(message, "Step")
     elif message["Type"] is MessageTypes.STATE:
         result = check_field(message, "State")
     elif message["Type"] is MessageTypes.UPDATE:

@@ -1,9 +1,12 @@
-from gevent import monkey; monkey.patch_all(os=False)
+from gevent import monkey; monkey.patch_all()
 from threading import Thread
 import socket
 import simplejson as json
 from server.libs.events import DeserializeEvent
 from server.libs.game import DeserializeUpdate
+import server.protocols.loader as LoaderProtcol
+
+RECEIVE_SIZE = 2048
 
 
 class LoaderProxy:
@@ -15,32 +18,52 @@ class LoaderProxy:
     def start(self):
         Thread(target=self.listen_to_data).start()
 
+    @staticmethod
+    def read_until(s, delim):
+        data = ""
+        next_byte = s.recv(1)
+        while next_byte != delim:
+            data += next_byte
+            next_byte = s.recv(1)
+        return data
+
     def listen_to_data(self):
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.connect(("localhost", self.port))
         s.sendall("LISTEN {}".format(self.game_id))
         data = s.recv(1024)
-        if data is "ACCEPTED":
+        message = LoaderProtcol.parse_message(data)
+        if LoaderProtcol.check(message) and message["Type"] is LoaderProtcol.MessageTypes.ACCEPTED:
             running = True
             while running:
-                data = s.recv(1024)
-                while data[-1] is not '}':
-                    print "received \"{}\", continuing to receive".format(data)
-                    next_data = s.recv(1024)
-                    data = ''.join([data,next_data])
-                msg = data.split(" ",1)
-                if len(msg) is 1 and msg[0] is "END":
+                data = ""
+                message_type = LoaderProxy.read_until(s, " ")
+                if message_type == LoaderProtcol.MessageTypes.EVENT or message_type == LoaderProtcol.MessageTypes.UPDATE:
+                    length = int(LoaderProxy.read_until(s, " "))
+                    while length > 0:
+                        if length > RECEIVE_SIZE:
+                            received = s.recv(RECEIVE_SIZE)
+                        else:
+                            received= s.recv(int(length))
+                        data += received
+                        length -= len(received)
+
+                #print "received loader: {} {}".format(message_type, data)
+                if message_type == LoaderProtcol.MessageTypes.END:
                     self.listener.finish()
                     running = False
-                elif len(msg) is not 2:
-                    print "Bad message: {}".format(data)
+                elif message_type == LoaderProtcol.MessageTypes.EVENT:
+                    #print "received event {}".format(data)
+                    self.listener.register_event(DeserializeEvent(json.loads(data)))
+                elif message_type == LoaderProtcol.MessageTypes.UPDATE:
+                    #print "received update {}".format(data)
+                    self.listener.register_update(DeserializeUpdate(json.loads(data)))
+                else:
+                    print "Bad message: {} {}".format(message_type, data)
                     running = False
-                elif msg[0] is "EVENT":
-                    self.listener.register_event(DeserializeEvent(json.loads(msg[1])))
-                elif msg[0] is "UPDATE":
-                    self.listener.register_update(DeserializeUpdate(json.loads(msg[1])))
             s.close()
         else:
+            print "rejected by loader"
             print data
             s.close()
             return

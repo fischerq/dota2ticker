@@ -11,7 +11,7 @@ class RegistrationProxy:
         s.send("GAME_SERVER {} {} {}".format(server.host, server.port, server.game_id))
         data = s.recv(1024)
         s.close()
-        if data is "ACCEPTED":
+        if data == "ACCEPTED":
             return True
         else:
             print "GS registration failed: {}".format(data)
@@ -25,7 +25,7 @@ class RegistrationProxy:
         s.send("LOADER {} {}".format(loader.game_id, loader.port))
         data = s.recv(1024)
         s.close()
-        if data is "ACCEPTED":
+        if data == "ACCEPTED":
             print "loader registration succeeded: {}".format(data)
             return True
         else:

@@ -9,32 +9,24 @@ from server.libs.game import Game, Update
 
 class ReplayLoader:
     def __init__(self, game_id, loader_server):
-        print "x"
         self.loader_server = loader_server
         self.game = Game()
-        print "x"
         self.game_id = game_id
         self.loaders = []
-        print "x"
         self.tick = -1
         self.changes_tick =[]
         self.replay = None
-        print "x"
 
     def load(self):
-        print "before loading thread"
         Thread(target=self.load_replay).start()
-        print "after loading thread"
 
     def load_replay(self):
-        print "Started loading"
         self.game.initialise()
         file_replay = "data/replays/{}.dem".format(self.game_id)
         self.replay = tarrasque.StreamBinding.from_file(file_replay, start_tick="start")
         self.tick = 0
         self.loaders.append(GameLoader(self, self.game_id))
         self.commit_update()
-
         for _ in self.replay.iter_ticks():
             self.tick = self.replay.tick
             self.changes_tick = []
