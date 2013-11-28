@@ -113,7 +113,6 @@ $( document ).ready(function() {
         }
 
         function refreshDisplay(){
-            console.log("refreshing", game);
             if(!(0 in game.current_state.data))
                 return;
             var players = game.current_state.get(0,"players");
@@ -182,7 +181,6 @@ $( document ).ready(function() {
 
         function updateStateUpdate(update){
             current_time = update["Time"];
-            game.setState(update["Time"], update["State"]);
             //update selected object if needed
             var selected_changes = filter_changes(update["Changes"], selected_unit);
             if(selected_changes.length > 0)
@@ -265,7 +263,6 @@ $( document ).ready(function() {
                         refresh();
                         break;
                     case MessageType.UPDATE:
-                        console.log("got update",message);
                         if(message["Time"] < game.current_state.time){
                             console.log("Received bad update: past");
                         }
@@ -275,7 +272,6 @@ $( document ).ready(function() {
                         }
                         break;
                     case MessageType.EVENT:
-                        console.log("got event",message);
                         //check event time
                         game.addEvent(message["Event"]);
                         refreshEvents();

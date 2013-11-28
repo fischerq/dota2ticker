@@ -48,7 +48,6 @@ function State(){
     }
 
     this.apply = function(update){
-        console.log("applying",this)
         if(update.time < this.time){
             console.log("ERROR: Applied past update");
         }
@@ -72,13 +71,10 @@ function State(){
             }
             else
                 console.log("Bad change type");
-            console.log("data ", id, this.data, this.data[id]);
         }
     }
 
     this.get = function(id, attribute){
-        console.log("getting", this)
-        console.log("getting2", this.data, id);
         if(!(id in this.data)){
             console.log("Bad Id",id);
             return null;
