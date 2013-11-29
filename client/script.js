@@ -1,10 +1,11 @@
 $( document ).ready(function() {
 	try {
         var connection_connection;
+        var connection_server_available = false;
         var connection;
         var confirmed = false;
         var client_id;
-        var game_id = 303487989;
+        var game_id;
 
         var events_display = $("#events");
 
@@ -164,6 +165,7 @@ $( document ).ready(function() {
                 refreshSelected();
             }
         }
+
         function getAddHeroImage(id, name) {
             //console.log("creating adder for ", id, name);
             return function(e){
@@ -186,8 +188,6 @@ $( document ).ready(function() {
             if(selected_changes.length > 0)
                 refreshSelected();
             //load images if needed
-
-
             var hero_name_changes = filter_changes(update["Changes"], undefined, ObjectTypes.HERO, "name");
             if(hero_name_changes.length > 0) {
                 var heroesLoader = new PxLoader();
@@ -207,11 +207,17 @@ $( document ).ready(function() {
             refreshHeader();
         }
 
-        function openConnectionConnection(){
+        function sendConnect(){
             var connectRequest = new Object();
             connectRequest["Type"] = MessageType.CONNECT;
             connectRequest["GameID"] = game_id;
             connection_connection.send(connectRequest);
+            console.log("sending connection message");
+        }
+
+        function connect(new_game_id){
+            game_id = new_game_id;
+            connection_connection = new DataConnection(HOST_IP, HOST_PORT, handleConnectionMessage, sendConnect);
         }
 
         function handleConnectionMessage(message)
@@ -220,11 +226,15 @@ $( document ).ready(function() {
                 if(message["Availability"] == AvailabilityType.AVAILABLE)
                     console.log("Yay, game available. wait for connection info");
                 else if(message["Availability"] == AvailabilityType.PENDING)//Try again later
-                    setTimeout(function(){connection_connection = new DataConnection(server_address, connection_server_port, handleConnectionMessage, openConnectionConnection)}, 1000);
+                {
+                    setTimeout(function(){connect(game_id)}, 1000);
+                    console.log("game is pending, try again in 1sec");
+                }
                 else if(message["Availability"] == AvailabilityType.UNAVAILABLE)
                     alert("Game unavailable");
             }
             else if (message["Type"] == MessageType.CLIENT_INFO) {
+                console.log("received client info");
                 client_id = message["ClientID"];
                 game_id = message["GameID"];
                 connection = new DataConnection(message["Host"], message["Port"], handleMessage, openConnection, closeConnection);
@@ -308,14 +318,6 @@ $( document ).ready(function() {
             subscriptionMessage["Time"] = time;
             connection.send(subscriptionMessage);
         }
-
-        //start connection server
-		var server_address = "localhost";
-		var connection_server_port = 29000;
-
-        connection_connection = new DataConnection(server_address, connection_server_port, handleConnectionMessage, openConnectionConnection);
-
-		console.log("Host:", server_address, connection_server_port);
 	} catch (ex) {
 		console.log("Socket exception:", ex);
 	}
@@ -325,7 +327,11 @@ $( document ).ready(function() {
 	$( "#thesubmit" ).click(function (e) {
 		e.preventDefault();
 		console.log("submit: ", e);
-		requests.send($inputBox.val());
+        var argv = $inputBox.val().split(" ");
+        if(argv[0] == "connect"){
+            connect(argv[1]);
+            alert("Connecting to game "+argv[1]);
+        }
 		$inputBox.val("");
 	});
 
