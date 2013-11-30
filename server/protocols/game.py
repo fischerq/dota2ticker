@@ -6,7 +6,8 @@ MessageTypes = enum(
     "CONFIRM",  # S: Data
     "CONFIGURE",  # C: Setting, Value
     "GETSTATE",  # C: Time
-    "SUBSCRIBE",  # C: Time
+    "SUBSCRIBE",  # C: Mode, Time
+    "UNSUBSCRIBE",  #
     "STATE",  # S: State
     "UPDATE",  # S: Update
     "EVENT",  # S: Event

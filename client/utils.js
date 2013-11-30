@@ -47,7 +47,8 @@ var MessageType = {
     CONFIRM : "CONFIRM", //Data
     CONFIGURE : "CONFIGURE", //Setting, Value
     GETSTATE : "GETSTATE", //Time
-    SUBSCRIBE : "SUBSCRIBE", //Time, MessageDetail, Mode, [Interval]
+    SUBSCRIBE : "SUBSCRIBE", //Mode, Time
+    UNSUBSCRIBE: "UNSUBSCRIBE", //
     STATE : "STATE", //State
     UPDATE : "UPDATE", //Update
     EVENT : "EVENT" //Event
@@ -80,6 +81,10 @@ function checkField(message, field) {
 }
 
 function checkMessage(message) {
+    if(message == null){
+        console.log("Bad message: null");
+        return false;
+    }
     if (!("Type" in message)) {
         console.log("Bad message: no type");
         return false;
@@ -92,8 +97,8 @@ function checkMessage(message) {
                  checkField(message, "PortRequest") &&
                  checkField(message, "PortListener") &&
                  checkField(message, "ClientID");
-    else if (message["Type"] == MessageType.REJECT_CONNECTION)
-        result = true;
+    else if (message["Type"] == MessageType.GAME_AVAILABILITY)
+        result = checkField(message, "Availability");
     else if (message["Type"] == MessageType.REGISTER)
         result = checkField(message, "ClientID") &&
                  checkField(message, "GameID");
@@ -118,6 +123,47 @@ function checkMessage(message) {
     else if (message["Type"] == MessageType.EVENT)
         result = checkField(message, "Event");
     return result;
+}
+
+var Commands = {
+    CONNECT: "connect",
+    SUBSCRIBE: "subscribe",
+    CLOSE: "close"
+};
+
+var SubscribeCommandModes = {
+    CURRENT: "current",
+    PAST: "past"
+};
+
+function checkCommand(argv){
+    if(argv.length < 1)
+        return false;
+    if(argv[0] == Commands.CONNECT){
+        if(argv.length != 2)
+            return false;
+    }
+    else if (argv[0] == Commands.SUBSCRIBE){
+        if(argv.length < 2)
+            return false;
+        if(argv[1] == SubscribeCommandModes.CURRENT) {
+            if(argv.length != 2)
+                return false;
+        }
+        else if(argv[1] == SubscribeCommandModes.PAST) {
+            if(argv.length != 3)
+                return false;
+        }
+        else return false;
+    }
+    else if (argv[0] == Commands.CLOSE){
+        if(argv.length != 1)
+            return false;
+    }
+    else {
+        return false;
+    }
+    return true;
 }
 
 function decodePosition(position){

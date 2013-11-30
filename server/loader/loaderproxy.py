@@ -4,7 +4,7 @@ import socket
 import simplejson as json
 from server.libs.events import DeserializeEvent
 from server.libs.game import DeserializeUpdate
-import server.protocols.loader as LoaderProtcol
+import server.protocols.loader as LoaderProtocol
 
 RECEIVE_SIZE = 2048
 
@@ -32,13 +32,13 @@ class LoaderProxy:
         s.connect(("localhost", self.port))
         s.sendall("LISTEN {}".format(self.game_id))
         data = s.recv(1024)
-        message = LoaderProtcol.parse_message(data)
-        if LoaderProtcol.check(message) and message["Type"] is LoaderProtcol.MessageTypes.ACCEPTED:
+        message = LoaderProtocol.parse_message(data)
+        if LoaderProtocol.check(message) and message["Type"] is LoaderProtocol.MessageTypes.ACCEPTED:
             running = True
             while running:
                 data = ""
                 message_type = LoaderProxy.read_until(s, " ")
-                if message_type == LoaderProtcol.MessageTypes.EVENT or message_type == LoaderProtcol.MessageTypes.UPDATE:
+                if message_type == LoaderProtocol.MessageTypes.EVENT or message_type == LoaderProtocol.MessageTypes.UPDATE:
                     length = int(LoaderProxy.read_until(s, " "))
                     while length > 0:
                         if length > RECEIVE_SIZE:
@@ -49,13 +49,13 @@ class LoaderProxy:
                         length -= len(received)
 
                 #print "received loader: {} {}".format(message_type, data)
-                if message_type == LoaderProtcol.MessageTypes.END:
+                if message_type == LoaderProtocol.MessageTypes.END:
                     self.listener.finish()
                     running = False
-                elif message_type == LoaderProtcol.MessageTypes.EVENT:
+                elif message_type == LoaderProtocol.MessageTypes.EVENT:
                     #print "received event {}".format(data)
                     self.listener.register_event(DeserializeEvent(json.loads(data)))
-                elif message_type == LoaderProtcol.MessageTypes.UPDATE:
+                elif message_type == LoaderProtocol.MessageTypes.UPDATE:
                     #print "received update {}".format(data)
                     self.listener.register_update(DeserializeUpdate(json.loads(data)))
                 else:

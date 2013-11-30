@@ -22,7 +22,7 @@ class Event:
 
 
 def DeserializeEvent(serialized):
-    event = Event(0,0,0)
+    event = Event(0,0,None)
     event.time = serialized["time"]
     event.importance = serialized["importance"]
     event.data = serialized["data"]

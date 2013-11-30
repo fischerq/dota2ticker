@@ -1,23 +1,49 @@
 import copy
 from server.libs.utils import enum
-
+from server.libs.events import Event
 SNAPSHOT_INTERVAL = 1000
 
 
-class UpdateIterator:
+class PastState:
     def __init__(self, game, time):
         self.game = game
-        self.current = Update(time)
-        self.next = Update(time)
-        self.iterator = game.updates.__iter__()
-        while self.next is not None and self.next.time < self.current.time:
-            self.advance()
+        self.time = time
+        self.next_update = Update(0)
+        self.update_iterator = game.updates.__iter__()
+        self.next_event = Event(0, 0, None)
+        self.event_iterator = game.events.__iter__()
+        while self.next_update is not None and self.next_update.time < self.time:
+            print "scrolling upd iterator {}, {}".format(self.next_update.time, self.time)
+            self.next_update = PastState.advance_iterator(self.update_iterator)
+        while self.next_event is not None and self.next_event.time < self.time:
+            self.next_event = PastState.advance_iterator(self.event_iterator)
 
-    def advance(self):
+    @staticmethod
+    def advance_iterator(iterator):
+        result = None
         try:
-            self.next = self.iterator.next()
+            result = iterator.next()
         except StopIteration:
-            self.next = None
+            result = None
+        return result
+
+    def pass_time(self, time_change):
+        self.time += time_change
+        updates = []
+        events = []
+        while self.next_update is not None and self.next_update.time <= self.time:
+            print "updating upd iterator {}, {}".format(self.next_update.time, self.time)
+            updates.append(self.next_update)
+            self.next_update = PastState.advance_iterator(self.update_iterator)
+        while self.next_event is not None and self.next_event.time <= self.time:
+            print "updating evt iterator {}, {}".format(self.next_event.time, self.time)
+            events.append(self.next_event)
+            self.next_event = PastState.advance_iterator(self.event_iterator)
+        return updates, events
+
+    def finished(self):
+        print "finished {}, {}".format(self.next_update is None, self.next_event is None)
+        return self.next_update is None and self.next_event is None
 
 
 class Game:
@@ -69,8 +95,8 @@ class Game:
             else:
                 break
 
-    def update_iterator(self, time):
-        return UpdateIterator(self, time)
+    def past_state(self, time):
+        return PastState(self, time)
 
     def add_update(self, update):
         if len(self.updates) > 0 and self.updates[-1].time == update.time:

@@ -4,6 +4,7 @@ $( document ).ready(function() {
         var connection_server_available = false;
         var connection;
         var confirmed = false;
+        var subscribed = false;
         var client_id;
         var game_id;
 
@@ -32,14 +33,27 @@ $( document ).ready(function() {
                 });
             console.log("registered ",name, images[name]);
         }
-    function refresh(){
-        current_time = game.current_state.time;
-        refreshEvents();
-        refreshDisplay();
-        refreshSelected();
-        refreshHeader();
-        setTimeout(refresh, refresh_interval);
-    }
+
+        function loadImage(loader, file, name, callback) {
+            if(name in images) {
+                console.log("prevented reloading", name, file);
+                return;
+            }
+            loader.addImage(file, name);
+            loader.addProgressListener(function(e){
+                registerImage(name, e.resource.img);
+                callback();
+            }, name);
+        }
+
+        function refresh(){
+            current_time = game.current_state.time;
+            refreshEvents();
+            refreshDisplay();
+            refreshSelected();
+            refreshHeader();
+            setTimeout(refresh, refresh_interval);
+        }
 
         function init(){
             var title = $("#header-title");
@@ -53,12 +67,10 @@ $( document ).ready(function() {
             layers["heroes"] = new Kinetic.Layer();
             minimap.add(layers["heroes"]);
             var imageLoader = new PxLoader();
-            imageLoader.addImage("data/minimap.png", "minimap");
-            imageLoader.addProgressListener(function(e){
-                registerImage("minimap", e.resource.img);
+            loadImage(imageLoader, "data/minimap.png", "minimap", function(){
                 layers["background"].add(images["minimap"]);
                 console.log("added minimap");
-            }, "minimap");
+            });
             imageLoader.addCompletionListener(refresh, "minimap");
             imageLoader.start();
 
@@ -69,6 +81,7 @@ $( document ).ready(function() {
             var time= $("#time");
             time.html(current_time);
         }
+
         function refreshSelected(){
             var state = game.current_state;
             var data_display = $("#view-data");
@@ -90,6 +103,7 @@ $( document ).ready(function() {
             }
             data_display.html(new_html);
         }
+
         function refreshEvents(){
             events_display.html("");
             for (var key in game.events){
@@ -169,7 +183,6 @@ $( document ).ready(function() {
         function getAddHeroImage(id, name) {
             //console.log("creating adder for ", id, name);
             return function(e){
-                    registerImage(name, e.resource.img);
                     images[name].setSize(icon_size, icon_size);
                     /*images[name].createImageHitRegion(function() {
                         var canvas = new Kinetic.Canvas(this.width, this.height);
@@ -179,6 +192,25 @@ $( document ).ready(function() {
                     images[name].on("click", getSetSelected(id));
                     layers["heroes"].add(images[name]);
                 };
+        }
+
+        function loadHeroData(name, id, loader) {
+            var icon = name+"_icon";
+            loadImage(loader, "data/icons/"+name+"_icon.png", icon, getAddHeroImage(id, icon));
+        }
+
+        function updateStateReset(state) {
+            init();
+            if(state.exists(0)){
+                var loader = new PxLoader();
+                var players = state.get(0, "players");
+                for(var player in players) {
+                    var hero_id = state.get(players[player], "hero");
+                    if(hero_id != null){
+                        loadHeroData(state.get(hero_id, "name"), hero_id, loader);
+                    }
+                }
+            }
         }
 
         function updateStateUpdate(update){
@@ -193,9 +225,7 @@ $( document ).ready(function() {
                 var heroesLoader = new PxLoader();
                 for( var i in hero_name_changes){
                     if(hero_name_changes[i]["Value"] != null){
-                        var icon = hero_name_changes[i]["Value"]+"_icon";
-                        heroesLoader.addImage("data/icons/"+hero_name_changes[i]["Value"]+"_icon.png", icon);
-                        heroesLoader.addProgressListener(getAddHeroImage(hero_name_changes[i]["ID"], icon),icon);
+                        loadHeroData(hero_name_changes[i]["Value"], hero_name_changes[i]["ID"], heroesLoader);
                     }
                 }
                 heroesLoader.addCompletionListener(refreshDisplay);
@@ -207,7 +237,7 @@ $( document ).ready(function() {
             refreshHeader();
         }
 
-        function sendConnect(){
+        function sendConnect() {
             var connectRequest = new Object();
             connectRequest["Type"] = MessageType.CONNECT;
             connectRequest["GameID"] = game_id;
@@ -215,13 +245,12 @@ $( document ).ready(function() {
             console.log("sending connection message");
         }
 
-        function connect(new_game_id){
+        function connect(new_game_id) {
             game_id = new_game_id;
             connection_connection = new DataConnection(HOST_IP, HOST_PORT, handleConnectionMessage, sendConnect);
         }
 
-        function handleConnectionMessage(message)
-        {
+        function handleConnectionMessage(message) {
             if(message["Type"] == MessageType.GAME_AVAILABILITY){
                 if(message["Availability"] == AvailabilityType.AVAILABLE)
                     console.log("Yay, game available. wait for connection info");
@@ -269,7 +298,9 @@ $( document ).ready(function() {
             if(checkMessage(message)) {
                 switch(message["Type"]) {
                     case MessageType.STATE:
+
                         game.setState(message["Time"], message["State"]);
+                        updateStateReset(game.current_state);
                         refresh();
                         break;
                     case MessageType.UPDATE:
@@ -312,15 +343,62 @@ $( document ).ready(function() {
                 console.log("unconfirmed channel");
                 return;
             }
+            else if(subscribed) {
+                console.log("trying to subscribe, already subscribed");
+            }
             var subscriptionMessage = new Object();
             subscriptionMessage["Type"] = MessageType.SUBSCRIBE;
             subscriptionMessage["Mode"] = mode;
             subscriptionMessage["Time"] = time;
             connection.send(subscriptionMessage);
+            subscribed = true;
+        }
+        function requestUnsubscribe() {
+            if(!confirmed){
+                console.log("unconfirmed channel");
+                return;
+            }
+            else if(!subscribed) {
+                console.log("trying to unsubscribe, not subscribed");
+            }
+            var unsubscriptionMessage = new Object();
+            unsubscriptionMessage["Type"] = MessageType.UNSUBSCRIBE;
+            connection.send(unsubscriptionMessage);
+            subscribed = false;
         }
 	} catch (ex) {
 		console.log("Socket exception:", ex);
 	}
+
+    function executeCommand(argv){
+        if(!checkCommand(argv)) {
+            console.log("Invalid command", argv);
+            return;
+        }
+        if(argv[0] == Commands.CONNECT) {
+            connect(argv[1]);
+            alert("Connecting to game "+argv[1]);
+        }
+        else if (argv[0] == Commands.SUBSCRIBE){
+            var mode = null;
+            var time = 0;
+            if(argv[1] == SubscribeCommandModes.CURRENT)
+                mode = SubscribeMode.CURRENT;
+            else if(argv[1] == SubscribeCommandModes.PAST) {
+                mode = SubscribeMode.PAST;
+                time = argv[2];
+            }
+            if(subscribed) {
+                requestUnsubscribe();
+            }
+            requestSubscribe(mode, time);
+        }
+        else if (argv[0] == Commands.CLOSE){
+            connection.close();
+            confirmed = false;
+            subscribed = false;
+        }
+    }
 
 	var $inputBox = $("#message");
 	
@@ -328,10 +406,7 @@ $( document ).ready(function() {
 		e.preventDefault();
 		console.log("submit: ", e);
         var argv = $inputBox.val().split(" ");
-        if(argv[0] == "connect"){
-            connect(argv[1]);
-            alert("Connecting to game "+argv[1]);
-        }
+        executeCommand(argv);
 		$inputBox.val("");
 	});
 

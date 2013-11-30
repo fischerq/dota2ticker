@@ -8,7 +8,6 @@ from threading import Thread
 from server.libs.utils import DataSocket
 
 from server.protocols import game as GameProtocol
-from server.protocols import connect as ConnectProtocol
 from server import protocols as Protocols
 
 from server.libs.game import Game
@@ -51,20 +50,25 @@ class GameSocket(DataSocket):
                 response = GameProtocol.ConfirmMessage()
         else:
             message_type = message["Type"]
+            print message
             if message_type == GameProtocol.MessageTypes.CONFIGURE:
                 pass
             elif message_type == GameProtocol.MessageTypes.GETSTATE:
                 response = GameProtocol.StateMessage(self.server.game.get_state(message["Time"]))
             elif message_type == GameProtocol.MessageTypes.SUBSCRIBE:
-                print message
-                self.server.add_subscriber(self.client, message["Mode"], message["Time"])
+                self.server.add_subscriber(self.client, message["Mode"], int(message["Time"]))
                 response = GameProtocol.StateMessage(self.server.game.get_state(message["Time"]))
+            elif message_type == GameProtocol.MessageTypes.UNSUBSCRIBE:
+                print "Unsubscribing"
+                self.server.remove_subscriber(self.client)
             else:
                 print "Unknown message type {}".format(message_type)
         self.send_data(response)
 
+    def closed(self, code, reason=None):
+        self.server.remove_client(self.client)
 
-PAST_SEND_INTERVAL = 0.1 # in seconds
+PAST_SEND_INTERVAL = 1.0 # in seconds
 TIME_PER_TICK = 1.0/30
 import time
 
@@ -88,14 +92,19 @@ class GameServer:
 
     def serve_past_subscribers(self):
         while True:
-            time_change = PAST_SEND_INTERVAL / TIME_PER_TICK
-            for subscriber, iterator in self.subscribers["Past"]:
-                if iterator.next is None:
+            time_change = int(PAST_SEND_INTERVAL / TIME_PER_TICK)
+            for subscriber, past_state in self.subscribers["Past"]:
+                print "Updating past subscriber"
+                if past_state.finished():
                     continue
-                while iterator.current.time + time_change > iterator.next.time:
-                    subscriber.send_update(iterator.next)
-                    iterator.advance()
-            self.subscribers["Past"][:] = [(s, it) for s, it in self.subscribers["Past"] if not it.next is None]
+                updates, events = past_state.pass_time(time_change)
+                print "{},{}".format(len(updates), len(events))
+                for update in updates:
+                    subscriber.send_update(update)
+                for event in events:
+                    subscriber.send_event(event)
+
+            self.subscribers["Past"][:] = [(s, ps) for s, ps in self.subscribers["Past"] if not ps.finished()]
             time.sleep(PAST_SEND_INTERVAL)
 
     def find_client(self, client_id):
@@ -111,6 +120,10 @@ class GameServer:
         with self.clients_lock:
             self.clients.append(client)
         return client
+
+    def remove_client(self, client):
+        self.remove_subscriber(client)
+        self.clients[:] = [c for c in self.clients if c.id != client.id]
     
     def provides_game(self, game_id):
         return self.game_id == game_id
@@ -120,7 +133,11 @@ class GameServer:
         if mode == GameProtocol.SubscribeModes.CURRENT:
             self.subscribers["Current"].append(client)
         elif mode == GameProtocol.SubscribeModes.PAST:
-            self.subscribers["Past"].append(client, self.game.update_iterator(time))
+            self.subscribers["Past"].append((client, self.game.past_state(time)))
+
+    def remove_subscriber(self, client):
+        self.subscribers["Current"][:] = [(s, it) for s, it in self.subscribers["Past"] if s.id != client.id]
+        self.subscribers["Past"][:] = [(s, it) for s, it in self.subscribers["Past"] if s.id != client.id]
 
     def register_update(self, update):
         self.game.add_update(update)

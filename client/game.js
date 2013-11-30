@@ -83,5 +83,13 @@ function State(){
             return null;
         return this.data[id][attribute];
     }
+
+    this.exists = function(id) {
+        if(this.data == null || this.data == undefined){
+            console.log("Querying invalid state");
+            return false;
+        }
+        return id in this.data;
+    }
 }
 
