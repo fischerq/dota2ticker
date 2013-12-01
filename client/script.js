@@ -1,7 +1,6 @@
 $( document ).ready(function() {
 	try {
         var connection_connection;
-        var connection_server_available = false;
         var connection;
         var confirmed = false;
         var subscribed = false;
@@ -20,7 +19,6 @@ $( document ).ready(function() {
               });
         var layers = {};
 
-        var current_time = -1;
         var event_window = 60*30;
         var selected_unit = -1;
         var game = new Game();
@@ -47,12 +45,34 @@ $( document ).ready(function() {
         }
 
         function refresh(){
-            current_time = game.current_state.time;
             refreshEvents();
             refreshDisplay();
             refreshSelected();
             refreshHeader();
             setTimeout(refresh, refresh_interval);
+        }
+
+        function formatTime(time){
+            var TICKS_PER_SECOND = 30.0;
+            if(!game.current_state.exists(0)){
+                console.log("no info")
+                return "";
+            }
+            var state = game.current_state.get(0,"state");
+            var offset = 0;
+            if(state == "draft")
+                offset = game.current_state.get(0,"draft_start_time");
+            else if(state == "pregame" || state == "game" || state == "postgame")
+                offset = game.current_state.get(0,"game_start_time");
+
+            var seconds = (parseInt(time) - offset) / TICKS_PER_SECOND;
+            var result = "";
+            if(seconds < 0){
+                result += "-";
+                seconds *= -1;
+            }
+            result += Math.floor(seconds/60) + ":" + Math.floor(seconds%60);
+            return result;
         }
 
         function init(){
@@ -79,7 +99,7 @@ $( document ).ready(function() {
 
         function refreshHeader(){
             var time= $("#time");
-            time.html(current_time);
+            time.html(formatTime(game.current_state.time));
         }
 
         function refreshSelected(){
@@ -108,20 +128,20 @@ $( document ).ready(function() {
             events_display.html("");
             for (var key in game.events){
                 var event = game.events[key];
-                if(event["Time"] < current_time - event_window)
+                if(event["Time"] < game.current_state.time - event_window)
                     continue;
                 var p = document.createElement("p");
                 if(event["Type"] == EventType.STATECHANGE)
                 {
-                    p.innerHTML = event["Time"]+": Changed State to "+event["State"];
+                    p.innerHTML = formatTime(event["Time"]) +" : Changed State to "+event["State"];
                 }
                 else if(event["Type"] == EventType.TEXTEVENT)
                 {
-                    p.innerHTML = event["Time"]+": "+event["Text"];
+                    p.innerHTML = formatTime(event["Time"]) +" : "+event["Text"];
                 }
                 else
                 {
-                    p.innerHTML = "Event at "+event["Time"]+": "+event["Type"];
+                    p.innerHTML = "Event at "+formatTime(event["Time"])+" : "+event["Type"];
                 }
                 events_display.append(p);
             }
@@ -214,7 +234,6 @@ $( document ).ready(function() {
         }
 
         function updateStateUpdate(update){
-            current_time = update["Time"];
             //update selected object if needed
             var selected_changes = filter_changes(update["Changes"], selected_unit);
             if(selected_changes.length > 0)
@@ -298,8 +317,7 @@ $( document ).ready(function() {
             if(checkMessage(message)) {
                 switch(message["Type"]) {
                     case MessageType.STATE:
-
-                        game.setState(message["Time"], message["State"]);
+                        game.setState(message["Time"], message["State"], message["Events"]);
                         updateStateReset(game.current_state);
                         refresh();
                         break;

@@ -45,6 +45,9 @@ class GameLoader(ObjectLoader):
         self.replay = loader.replay
         self.set_attribute("type", ObjectTypes.GAME)
         self.set_attribute("game_id", game_id)
+        self.set_attribute("game_mode", self.replay.info.game_mode)
+        self.set_attribute("draft_start_time", self.replay.info.draft_start_time)
+        self.set_attribute("game_start_time", self.replay.info.game_start_time)
 
     def check_changes(self):
         if self.replay.info.game_state is not self.state.get(self.id, "state"):

@@ -41,7 +41,8 @@ def check(message):
         result = check_field(message, "Time") and\
             check_field(message, "Mode")
     elif message["Type"] is MessageTypes.STATE:
-        result = check_field(message, "State")
+        result = check_field(message, "State") and\
+            check_field(message, "Events")
     elif message["Type"] is MessageTypes.UPDATE:
         result = check_field(message, "Update")
     elif message["Type"] is MessageTypes.EVENT:
@@ -64,11 +65,12 @@ def ErrorMessage(message):
     return message
 
 
-def StateMessage(state):
+def StateMessage(game, time):
     message = dict()
     message["Type"] = MessageTypes.STATE
-    message["Time"] = state.time
-    message["State"] = state.data
+    message["Time"] = time
+    message["Events"] = game.get_events(time)
+    message["State"] = game.get_state(time).data
     return message
 
 

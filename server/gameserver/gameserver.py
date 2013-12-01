@@ -54,10 +54,11 @@ class GameSocket(DataSocket):
             if message_type == GameProtocol.MessageTypes.CONFIGURE:
                 pass
             elif message_type == GameProtocol.MessageTypes.GETSTATE:
-                response = GameProtocol.StateMessage(self.server.game.get_state(message["Time"]))
+                response = GameProtocol.StateMessage(self.server.game, int(message["Time"]))
             elif message_type == GameProtocol.MessageTypes.SUBSCRIBE:
                 self.server.add_subscriber(self.client, message["Mode"], int(message["Time"]))
-                response = GameProtocol.StateMessage(self.server.game.get_state(message["Time"]))
+                self.client.buffered_update = None
+                response = GameProtocol.StateMessage(self.server.game, int(message["Time"]))
             elif message_type == GameProtocol.MessageTypes.UNSUBSCRIBE:
                 print "Unsubscribing"
                 self.server.remove_subscriber(self.client)
@@ -140,6 +141,7 @@ class GameServer:
         self.subscribers["Past"][:] = [(s, it) for s, it in self.subscribers["Past"] if s.id != client.id]
 
     def register_update(self, update):
+        print "adding update at {}, {} changes".format(update.time, len(update.changes))
         self.game.add_update(update)
         for client in self.subscribers["Current"]:
             client.send_update(update)

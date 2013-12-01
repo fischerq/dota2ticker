@@ -13,7 +13,7 @@ class PastState:
         self.next_event = Event(0, 0, None)
         self.event_iterator = game.events.__iter__()
         while self.next_update is not None and self.next_update.time < self.time:
-            print "scrolling upd iterator {}, {}".format(self.next_update.time, self.time)
+            #print "scrolling upd iterator {}, {}".format(self.next_update.time, self.time)
             self.next_update = PastState.advance_iterator(self.update_iterator)
         while self.next_event is not None and self.next_event.time < self.time:
             self.next_event = PastState.advance_iterator(self.event_iterator)
@@ -32,11 +32,11 @@ class PastState:
         updates = []
         events = []
         while self.next_update is not None and self.next_update.time <= self.time:
-            print "updating upd iterator {}, {}".format(self.next_update.time, self.time)
+            #print "updating upd iterator {}, {}".format(self.next_update.time, self.time)
             updates.append(self.next_update)
             self.next_update = PastState.advance_iterator(self.update_iterator)
         while self.next_event is not None and self.next_event.time <= self.time:
-            print "updating evt iterator {}, {}".format(self.next_event.time, self.time)
+            #print "updating evt iterator {}, {}".format(self.next_event.time, self.time)
             events.append(self.next_event)
             self.next_event = PastState.advance_iterator(self.event_iterator)
         return updates, events
@@ -85,6 +85,15 @@ class Game:
                 last_state.apply(update)
         return last_state
 
+    def get_events(self, time):
+        events = []
+        for event in self.events:
+            if event.time <= time:
+                events.append(event.data)
+            else:
+                break;
+        return events
+
     def get_update(self, start, end):
         result = Update(start)
         for update in self.updates:
@@ -99,6 +108,7 @@ class Game:
         return PastState(self, time)
 
     def add_update(self, update):
+        update = copy.deepcopy(update)
         if len(self.updates) > 0 and self.updates[-1].time == update.time:
             self.updates[-1].extend(update.changes)
         elif len(self.updates) == 0 or self.updates[-1].time < update.time:

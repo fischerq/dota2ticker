@@ -5,8 +5,9 @@ function Game(){
     this.events = new Array();
     this.current_state = new State();
 
-    this.setState = function(time, state) {
+    this.setState = function(time, state, events) {
         this.current_state.set(time, state);
+        this.events = events;
     }
 
     this.addUpdate = function(update) {

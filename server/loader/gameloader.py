@@ -7,6 +7,8 @@ from server.loader.loaders import GameLoader, ObjectTypes
 from server.libs.game import Game, Update
 
 
+COMPRESSION_PRECISION = 10
+
 class ReplayLoader:
     def __init__(self, game_id, loader_server):
         self.loader_server = loader_server
@@ -14,8 +16,11 @@ class ReplayLoader:
         self.game_id = game_id
         self.loaders = []
         self.tick = -1
-        self.changes_tick =[]
+        self.cache_start = 0
+        self.cache_end = None
+        self.changes_cache = []
         self.replay = None
+        self.changes_tick = []
 
     def load(self):
         Thread(target=self.load_replay).start()
@@ -26,7 +31,6 @@ class ReplayLoader:
         self.replay = tarrasque.StreamBinding.from_file(file_replay, start_tick="start")
         self.tick = 0
         self.loaders.append(GameLoader(self, self.game_id))
-        self.commit_update()
         for _ in self.replay.iter_ticks():
             self.tick = self.replay.tick
             self.changes_tick = []
@@ -39,7 +43,7 @@ class ReplayLoader:
                 else:
                     loader.remove()
             self.loaders = new_loaders
-            #print "changed {}".format(self.changes_tick)
+            #print "changed {}".format(self.changes_cache)
             #message game state changes
             state_changes = self.filter_changes(object_type=ObjectTypes.GAME, attribute="state")
             if len(state_changes) > 0:
@@ -76,23 +80,23 @@ class ReplayLoader:
                 pass
             elif self.replay.info.game_state is "end":
                 pass
-            self.commit_update()
         self.finish()
 
     def add_change(self, change):
-        self.game.add_update(Update(self.tick, [change]))
         self.changes_tick.append(change)
-
-    def commit_update(self):
-        if len(self.changes_tick) > 0:
-            update = Update(self.tick, self.changes_tick)
-            self.loader_server.send_update(update)
+        self.game.add_update(Update(self.tick, [change]))
+        if self.tick >= self.cache_start + COMPRESSION_PRECISION:
+            self.loader_server.send_update(Update(self.cache_end, self.changes_cache))
+            self.changes_cache = []
+            self.cache_start = self.tick
+        self.changes_cache.append(change)
+        self.cache_end = self.tick
 
     def finish(self):
         self.game.finish()
         self.loader_server.finish()
 
-    def add_event(self,event):
+    def add_event(self, event):
         self.game.add_event(event)
         self.loader_server.send_event(event)
 
