@@ -104,12 +104,12 @@ class ConnectionServer:
         if loader_port < 0:
             print "Spawning Loader"
             loader_port = self.next_loader_port
-            subprocess.Popen(["python", "executables/loader_main.py", str(game_id), str(loader_port), str(self.registration_port)])
+            subprocess.Popen(["python", "server/executables/loader_main.py", str(game_id), str(loader_port), str(self.registration_port)])
             self.next_loader_port += 1
             self.requested_games.append(game_id)
         else:
             print "Creating server for game {} that registers at {}".format(game_id, self.registration_port)
-            subprocess.Popen(["python", "executables/gameserver_main.py", str(game_id),  str(self.next_gs_port), str(self.registration_port), str(loader_port)])
+            subprocess.Popen(["python", "server/executables/gameserver_main.py", str(game_id),  str(self.next_gs_port), str(self.registration_port), str(loader_port)])
             self.next_gs_port += 1
 
     def start(self):

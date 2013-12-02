@@ -27,7 +27,7 @@ class ReplayLoader:
 
     def load_replay(self):
         self.game.initialise()
-        file_replay = "data/replays/{}.dem".format(self.game_id)
+        file_replay = "server/data/replays/{}.dem".format(self.game_id)
         self.replay = tarrasque.StreamBinding.from_file(file_replay, start_tick="start")
         self.tick = 0
         self.loaders.append(GameLoader(self, self.game_id))
