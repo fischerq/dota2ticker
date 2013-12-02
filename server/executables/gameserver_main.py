@@ -10,7 +10,7 @@ registration_port = int(sys.argv[3])
 loader_port = int(sys.argv[4])
 
 print "Started gameserver for game {} at {}, registering at {}, loading from {}".format(port, game_id, registration_port, loader_port)
-server = GameServer("localhost", port, game_id)
+server = GameServer("0.0.0.0", port, game_id)
 
 loader = LoaderProxy(game_id, server, loader_port)
 loader.start()

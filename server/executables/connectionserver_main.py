@@ -2,6 +2,6 @@
 
 from server.connectionserver.connectionserver import ConnectionServer
 
-
-connection_server = ConnectionServer("localhost", 29000, 30000)
+connection_server = ConnectionServer("0.0.0.0", 29000, 30000)
+print "Started Connectionserver"
 connection_server.start()

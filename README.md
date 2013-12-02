@@ -14,3 +14,6 @@ clone repo
 
 
 apt-get install python-dev python-snappy python-protobuf
+
+easy_install gevent
+easy_install simplejson
