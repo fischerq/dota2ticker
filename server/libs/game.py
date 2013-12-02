@@ -42,7 +42,7 @@ class PastState:
         return updates, events
 
     def finished(self):
-        print "finished {}, {}".format(self.next_update is None, self.next_event is None)
+        #print "finished {}, {}".format(self.next_update is None, self.next_event is None)
         return self.next_update is None and self.next_event is None
 
 

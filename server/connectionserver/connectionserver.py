@@ -98,7 +98,7 @@ class ConnectionServer:
         print "Trying to create server for game {}".format(game_id)
         loader_port = -1
         for loader in self.loaders:
-            if loader["game_id"] is game_id:
+            if loader["game_id"] == game_id:
                 loader_port = loader["port"]
                 break
         if loader_port < 0:

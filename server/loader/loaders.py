@@ -46,14 +46,17 @@ class GameLoader(ObjectLoader):
         self.set_attribute("type", ObjectTypes.GAME)
         self.set_attribute("game_id", game_id)
         self.set_attribute("game_mode", self.replay.info.game_mode)
-        self.set_attribute("draft_start_time", self.replay.info.draft_start_time)
-        self.set_attribute("game_start_time", self.replay.info.game_start_time)
 
     def check_changes(self):
         if self.replay.info.game_state is not self.state.get(self.id, "state"):
-            if self.replay.info.game_state is "draft":
+            if self.replay.info.game_state is "loading":
                 pass
+            elif self.replay.info.game_state is "draft":
+                print "draft {}".format(self.replay.tick)
+                self.set_attribute("draft_start_time", self.replay.tick)
             elif self.replay.info.game_state is "pregame":
+                print "pregame {}".format(self.replay.tick)
+                self.set_attribute("pregame_start_time", self.replay.tick)
                 #start game loading
                 players = []
                 for player in self.replay.players:
@@ -62,13 +65,15 @@ class GameLoader(ObjectLoader):
                         players.append(player_loader.id)
                         self.loader.loaders.append(player_loader)
                 self.set_attribute("players", players)
+            elif self.replay.info.game_state is "game":
+                print "game {}".format(self.replay.tick)
+                self.set_attribute("game_start_time", self.replay.tick)
             elif self.replay.info.game_state is "postgame":
-                pass
-            elif self.replay.info.game_state is "loading" or self.replay.info.game_state is "game":
-                pass
+                self.set_attribute("game_end_time", self.replay.tick)
             else:
                 print "strange state {}".format(self.replay.info.game_state)
         self.check_attribute("state", self.replay.info.game_state)
+        self.check_attribute("pausing_team", self.replay.info.pausing_team)
 
 
 class EntityLoader(ObjectLoader):

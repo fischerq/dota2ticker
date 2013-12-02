@@ -56,9 +56,11 @@ class GameSocket(DataSocket):
             elif message_type == GameProtocol.MessageTypes.GETSTATE:
                 response = GameProtocol.StateMessage(self.server.game, int(message["Time"]))
             elif message_type == GameProtocol.MessageTypes.SUBSCRIBE:
-                self.server.add_subscriber(self.client, message["Mode"], int(message["Time"]))
-                self.client.buffered_update = None
-                response = GameProtocol.StateMessage(self.server.game, int(message["Time"]))
+                current_time = int(message["Time"])
+                if message["Mode"] == GameProtocol.SubscribeModes.CURRENT:
+                    current_time = self.server.game.current_state.time
+                self.server.add_subscriber(self.client, message["Mode"], current_time)
+                response = GameProtocol.StateMessage(self.server.game, current_time)
             elif message_type == GameProtocol.MessageTypes.UNSUBSCRIBE:
                 print "Unsubscribing"
                 self.server.remove_subscriber(self.client)
@@ -69,7 +71,7 @@ class GameSocket(DataSocket):
     def closed(self, code, reason=None):
         self.server.remove_client(self.client)
 
-PAST_SEND_INTERVAL = 1.0 # in seconds
+PAST_SEND_INTERVAL = 5 # in ticks
 TIME_PER_TICK = 1.0/30
 import time
 
@@ -93,20 +95,20 @@ class GameServer:
 
     def serve_past_subscribers(self):
         while True:
-            time_change = int(PAST_SEND_INTERVAL / TIME_PER_TICK)
+            time_change = int(PAST_SEND_INTERVAL * TIME_PER_TICK)
             for subscriber, past_state in self.subscribers["Past"]:
-                print "Updating past subscriber"
+                #print "Updating past subscriber"
                 if past_state.finished():
                     continue
-                updates, events = past_state.pass_time(time_change)
-                print "{},{}".format(len(updates), len(events))
+                updates, events = past_state.pass_time(PAST_SEND_INTERVAL*subscriber.speed)
+                #print "{},{}".format(len(updates), len(events))
                 for update in updates:
                     subscriber.send_update(update)
                 for event in events:
                     subscriber.send_event(event)
 
             self.subscribers["Past"][:] = [(s, ps) for s, ps in self.subscribers["Past"] if not ps.finished()]
-            time.sleep(PAST_SEND_INTERVAL)
+            time.sleep(PAST_SEND_INTERVAL * TIME_PER_TICK)
 
     def find_client(self, client_id):
         with self.clients_lock:
@@ -130,18 +132,20 @@ class GameServer:
         return self.game_id == game_id
 
     def add_subscriber(self, client, mode, time):
-        self.subscribers["Event"].append(client)
         if mode == GameProtocol.SubscribeModes.CURRENT:
+            self.subscribers["Event"].append(client)
             self.subscribers["Current"].append(client)
         elif mode == GameProtocol.SubscribeModes.PAST:
+            client.set_time(time)
             self.subscribers["Past"].append((client, self.game.past_state(time)))
 
     def remove_subscriber(self, client):
+        self.subscribers["Event"][:] = [c for c in self.subscribers["Event"] if c.id != client.id]
         self.subscribers["Current"][:] = [(s, it) for s, it in self.subscribers["Past"] if s.id != client.id]
         self.subscribers["Past"][:] = [(s, it) for s, it in self.subscribers["Past"] if s.id != client.id]
 
     def register_update(self, update):
-        print "adding update at {}, {} changes".format(update.time, len(update.changes))
+        #print "adding update at {}, {} changes".format(update.time, len(update.changes))
         self.game.add_update(update)
         for client in self.subscribers["Current"]:
             client.send_update(update)
@@ -161,6 +165,11 @@ class Client:
         self.subscribe_threshold = 0
         self.last_time = 0
         self.buffered_update = None
+        self.speed = 2
+
+    def set_time(self, time):
+        self.buffered_update = None
+        self.last_time = time
 
     def send_update(self, update):
         if self.buffered_update is None:

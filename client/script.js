@@ -4,6 +4,7 @@ $( document ).ready(function() {
         var connection;
         var confirmed = false;
         var subscribed = false;
+        var valid_game = false;
         var client_id;
         var game_id;
 
@@ -45,10 +46,12 @@ $( document ).ready(function() {
         }
 
         function refresh(){
-            refreshEvents();
-            refreshDisplay();
-            refreshSelected();
-            refreshHeader();
+            if(valid_game){
+                refreshEvents();
+                refreshDisplay();
+                refreshSelected();
+                refreshHeader();
+            }
             setTimeout(refresh, refresh_interval);
         }
 
@@ -62,8 +65,12 @@ $( document ).ready(function() {
             var offset = 0;
             if(state == "draft")
                 offset = game.current_state.get(0,"draft_start_time");
-            else if(state == "pregame" || state == "game" || state == "postgame")
+            else if(state == "pregame")
+                offset = game.current_state.get(0,"pregame_start_time");
+            else if( state == "game")
                 offset = game.current_state.get(0,"game_start_time");
+            else if( state == "postgame")
+                offset = game.current_state.get(0,"game_end_time");
 
             var seconds = (parseInt(time) - offset) / TICKS_PER_SECOND;
             var result = "";
@@ -71,7 +78,7 @@ $( document ).ready(function() {
                 result += "-";
                 seconds *= -1;
             }
-            result += Math.floor(seconds/60) + ":" + Math.floor(seconds%60);
+            result += state + " "+zeroPad(Math.floor(seconds/60),2) + ":" + zeroPad(Math.floor(seconds%60),2);
             return result;
         }
 
@@ -94,12 +101,16 @@ $( document ).ready(function() {
             imageLoader.addCompletionListener(refresh, "minimap");
             imageLoader.start();
 
+            valid_game = true;
             setTimeout(refresh, refresh_interval);
         }
 
         function refreshHeader(){
             var time= $("#time");
-            time.html(formatTime(game.current_state.time));
+            var paused = "";
+            if(game.current_state.get(0, "pausing_team") != null)
+                paused = "<br/> Currently paused by "+game.current_state.get(0, "pausing_team");
+            time.html(formatTime(game.current_state.time)+paused);
         }
 
         function refreshSelected(){
@@ -286,7 +297,6 @@ $( document ).ready(function() {
                 client_id = message["ClientID"];
                 game_id = message["GameID"];
                 connection = new DataConnection(message["Host"], message["Port"], handleMessage, openConnection, closeConnection);
-                init();
             }
             else{
                 console.log("Unknown MessageType: ", message["Type"], message);
