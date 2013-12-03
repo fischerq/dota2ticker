@@ -19,8 +19,8 @@ $( document ).ready(function() {
                 height: 300
               });
         var layers = {};
-
-        var event_window = 60*30;
+        var TICKS_PER_SEC = 30;
+        var event_window = 60*TICKS_PER_SEC;
         var selected_unit = -1;
         var game = new Game();
         var icon_size = 20;
@@ -56,28 +56,39 @@ $( document ).ready(function() {
         }
 
         function formatTime(time){
-            var TICKS_PER_SECOND = 30.0;
+            var parsedTime = parseInt(time);
             if(!game.current_state.exists(0)){
                 console.log("no info")
                 return "";
             }
-            var state = game.current_state.get(0,"state");
-            var offset = 0;
-            if(state == "draft")
-                offset = game.current_state.get(0,"draft_start_time");
-            else if(state == "pregame")
-                offset = game.current_state.get(0,"pregame_start_time");
-            else if( state == "game")
-                offset = game.current_state.get(0,"game_start_time");
-            else if( state == "postgame")
-                offset = game.current_state.get(0,"game_end_time");
+            return formatTimeState(parsedTime, game.current_state.get(0,"state"));
+        }
 
-            var seconds = (parseInt(time) - offset) / TICKS_PER_SECOND;
-            var result = "";
-            if(seconds < 0){
-                result += "-";
-                seconds *= -1;
+        function formatTimeState(time, state){
+            var TICKS_PER_SECOND = 30.0;
+            var offset = 0;
+            if(state == "draft"){
+                offset = game.current_state.get(0,"draft_start_time");
+                if(time - offset < 0)
+                    return formatTimeState(time, "loading");
             }
+            else if(state == "pregame"){
+                offset = game.current_state.get(0,"pregame_start_time");
+                if(time - offset < 0)
+                    return formatTimeState(time, "draft");
+            }
+            else if( state == "game"){
+                offset = game.current_state.get(0,"game_start_time");
+                if(time - offset < 0)
+                    return formatTimeState(time, "pregame");
+            }
+            else if( state == "postgame"){
+                offset = game.current_state.get(0,"game_end_time");
+                if(time - offset < 0)
+                    return formatTimeState(time, "game");
+            }
+            var seconds = (time - offset) / TICKS_PER_SECOND;
+            var result = "";
             result += state + " "+zeroPad(Math.floor(seconds/60),2) + ":" + zeroPad(Math.floor(seconds%60),2);
             return result;
         }
@@ -101,7 +112,6 @@ $( document ).ready(function() {
             imageLoader.addCompletionListener(refresh, "minimap");
             imageLoader.start();
 
-            valid_game = true;
             setTimeout(refresh, refresh_interval);
         }
 
@@ -129,8 +139,8 @@ $( document ).ready(function() {
             else if(state.get(selected_unit,"type") == ObjectTypes.HERO){
                 //console.log("cant select heroes, bad");
                 //selected_unit = state.get(selected_unit, "player");
-                new_html=state.get(selected_unit, "name")+"(Lvl "+state.get(selected_unit,"level")+"): HP "+state.get(selected_unit, "health") +"/"+state.get(selected_unit, "max_health")+"<br/>Mana: "
-                    +state.get(selected_unit, "mana")+"/"+state.get(selected_unit, "max_mana");
+                new_html=state.get(selected_unit, "name")+"(Lvl "+state.get(selected_unit,"level")+"):<br> HP "+state.get(selected_unit, "health") +"/"+state.get(selected_unit, "max_health")+"<br/>Mana: "
+                    +Math.floor(state.get(selected_unit, "mana"))+"/"+Math.floor(state.get(selected_unit, "max_mana"));
             }
             data_display.html(new_html);
         }
@@ -144,15 +154,15 @@ $( document ).ready(function() {
                 var p = document.createElement("p");
                 if(event["Type"] == EventType.STATECHANGE)
                 {
-                    p.innerHTML = formatTime(event["Time"]) +" : Changed State to "+event["State"];
+                    p.innerHTML = formatTime(event["Time"]) +" :<br/> Changed State to "+event["State"];
                 }
                 else if(event["Type"] == EventType.TEXTEVENT)
                 {
-                    p.innerHTML = formatTime(event["Time"]) +" : "+event["Text"];
+                    p.innerHTML = formatTime(event["Time"]) +" :<br/> "+event["Text"];
                 }
                 else
                 {
-                    p.innerHTML = "Event at "+formatTime(event["Time"])+" : "+event["Type"];
+                    p.innerHTML = "Event at "+formatTime(event["Time"])+" :<br/> "+event["Type"];
                 }
                 events_display.append(p);
             }
@@ -231,8 +241,10 @@ $( document ).ready(function() {
         }
 
         function updateStateReset(state) {
+            console.log("state reset", state);
             init();
             if(state.exists(0)){
+                valid_game = true;
                 var loader = new PxLoader();
                 var players = state.get(0, "players");
                 for(var player in players) {
@@ -241,10 +253,18 @@ $( document ).ready(function() {
                         loadHeroData(state.get(hero_id, "name"), hero_id, loader);
                     }
                 }
+                loader.addCompletionListener(refreshDisplay);
+                loader.start();
             }
         }
 
         function updateStateUpdate(update){
+            if(!valid_game) {
+                var game_creation_change = filter_changes(update["Changes"], 0, undefined, undefined, ChangeTypes.CREATE);
+                if(game_creation_change.length > 0)
+                    valid_game = true;
+                else return;
+            }
             //update selected object if needed
             var selected_changes = filter_changes(update["Changes"], selected_unit);
             if(selected_changes.length > 0)

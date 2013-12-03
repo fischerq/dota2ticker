@@ -57,9 +57,15 @@ class GameSocket(DataSocket):
                 response = GameProtocol.StateMessage(self.server.game, int(message["Time"]))
             elif message_type == GameProtocol.MessageTypes.SUBSCRIBE:
                 current_time = int(message["Time"])
+                mode = message["Mode"]
                 if message["Mode"] == GameProtocol.SubscribeModes.CURRENT:
-                    current_time = self.server.game.current_state.time
-                self.server.add_subscriber(self.client, message["Mode"], current_time)
+                    if not self.server.game.complete:
+                        current_time = self.server.game.current_state.time
+                    else:
+                        current_time = self.server.game.current_state.get(0, "pregame_start_time")
+                        mode = GameProtocol.SubscribeModes.PAST
+                self.server.add_subscriber(self.client, mode, current_time)
+                print "sending state for time {}".format(current_time)
                 response = GameProtocol.StateMessage(self.server.game, current_time)
             elif message_type == GameProtocol.MessageTypes.UNSUBSCRIBE:
                 print "Unsubscribing"

@@ -50,7 +50,7 @@ class Game:
     def __init__(self):
         self.current_state = State(0)
         self.snapshots = []
-        self.snapshots.append(self.current_state)
+        self.snapshots.append(copy.deepcopy(self.current_state))
         self.updates = []
         self.events = []
         self.complete = False
@@ -113,6 +113,7 @@ class Game:
             self.updates[-1].extend(update.changes)
         elif len(self.updates) == 0 or self.updates[-1].time < update.time:
             if self.current_state.time - self.snapshots[-1].time > SNAPSHOT_INTERVAL:
+                print "creating snapshot {}".format(self.current_state.time)
                 self.snapshots.append(copy.deepcopy(self.current_state))
             self.updates.append(update)
         else:

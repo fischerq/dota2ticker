@@ -46,6 +46,7 @@ class GameLoader(ObjectLoader):
         self.set_attribute("type", ObjectTypes.GAME)
         self.set_attribute("game_id", game_id)
         self.set_attribute("game_mode", self.replay.info.game_mode)
+        self.set_attribute("state", self.replay.info.game_state)
 
     def check_changes(self):
         if self.replay.info.game_state is not self.state.get(self.id, "state"):
