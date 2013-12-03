@@ -89,6 +89,16 @@ $( document ).ready(function() {
             }
             var seconds = (time - offset) / TICKS_PER_SECOND;
             var result = "";
+
+            var formattedState = "";
+            if(state == "loading")
+                formattedState = "Loading";
+            else if(state == "pregame")
+                formattedState = "Pregame";
+            else if(state == "game")
+                formattedState = "Game";
+            else if(state == "postgame")
+                formattedState = "Postgame";
             result += state + " "+zeroPad(Math.floor(seconds/60),2) + ":" + zeroPad(Math.floor(seconds%60),2);
             return result;
         }
