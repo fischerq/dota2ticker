@@ -19,19 +19,28 @@ easy_install gevent
 easy_install simplejson
 
 install protobuf 2.5:
-wget http://protobuf.googlecode.com/files/protobuf-2.5.0.tar.gz
-tar -xzvf file.tar.gz
-./configure
-make
-make check
-make install
+    wget http://protobuf.googlecode.com/files/protobuf-2.5.0.tar.gz
+    tar -xzvf file.tar.gz
+    cd protobuf-2.5.0
+	./configure
+    make
+    make check
+    make install
+
 in /python:
 change /etc/ld.so.conf: 
 add line 
     /usr/local/lib
-export PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=cpp
 
-     $ python setup.py build
-     $ python setup.py test
+run 
+    ldconfig
 
-	 
+    export PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=cpp
+    python setup.py build
+    python setup.py test
+    python setup.py install
+
+	
+cp dota2ticker /ect/init.d
+
+start daemon with /etc/init.d/dota2ticker start
