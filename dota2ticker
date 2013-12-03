@@ -14,7 +14,8 @@
 DIR=/usr/local/dota2ticker
 DAEMON=$DIR/server/executables/connectionserver_main.py
 DAEMON_NAME=dota2ticker
- 
+export PYTHONPATH=/usr/local/dota2ticker:/usr/local/skadi:/usr/local/Tarrasque
+echo $PYTHONPATH
 # This next line determines what user the script runs as.
 DAEMON_USER=root
  
@@ -27,7 +28,7 @@ do_start () {
 log_daemon_msg "Starting system $DAEMON_NAME daemon"
 start-stop-daemon --start --background --pidfile $PIDFILE\
 					--make-pidfile --user $DAEMON_USER --chdir $DIR\
-					--exec /bin/bash -- -c "$DAEMON > $DIR/$DAEMON_NAME.log 2>&1"
+					--exec /bin/bash -- -c "python $DAEMON > $DIR/$DAEMON_NAME.log 2>&1"
 log_end_msg $?
 }
 do_stop () {
