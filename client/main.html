@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <!-- Bootstrap -->
     <link href="css/bootstrap.min.css" rel="stylesheet">
+
     <link href="css/jumbotron-narrow.css" rel="stylesheet">
     <link href="css/style.css" rel="stylesheet">
 
@@ -17,11 +18,13 @@
     <![endif]-->
 
     <script src="js/jquery-2.0.3.min.js"></script>
+    <script src="js/bootstrap.min.js"></script>
+
+
 	<script src="js/json3.min.js"></script>
     <script src="js/kinetic-v4.7.4.min.js"></script>
     <script type="text/javascript" src="js/PxLoader.js"></script>
     <script type="text/javascript" src="js/PxLoaderImage.js"></script>
-
     <script src="config.js"></script>
     <script src="utils.js"></script>
     <script src="game.js"></script>
@@ -33,18 +36,41 @@
   </head>
   <body>
 
-
-    <div id="wrap">
+   <div id="wrap">
 
     <div class="container">
       <div class="header">
         <ul class="nav nav-pills pull-right">
           <li class="active"><a href="#">Home</a></li>
-          <li><a href="#">About</a></li>
+          <li><a data-target="#about" role="button" class="btn" data-toggle="modal">About</a></li>
           <li><a href="#">Contact</a></li>
         </ul>
         <h3 class="text-muted">Dota2Ticker</h3>
       </div>
+
+<!-- About Modal -->
+<div class="modal fade" id="about" tabindex="-1" role="dialog" aria-labelledby="aboutLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+        <h4 class="modal-title" id="aboutLabel">About</h4>
+      </div>
+      <div class="modal-body">
+
+        <h4>Commands: </h4>
+        <ul>
+            <li>connect <i>game_id</i></li>
+            <li>subscribe past <i>time</i> (Time in ticks. 1800 ticks = 1 minute.)</li>
+            <li>subscribe current</li>
+        </ul>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+      </div>
+    </div><!-- /.modal-content -->
+  </div><!-- /.modal-dialog -->
+</div><!-- /.modal -->
 
       <div>
           <form id="form">
@@ -68,7 +94,7 @@
             </div>
         </div>
 
-        <div class="col-lg-6">
+        <div class="col-lg-6" style="max-height:300px;">
             <h3>Events</h3>
             <div id="events"></div>
         </div>
