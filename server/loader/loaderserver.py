@@ -10,12 +10,13 @@ class LoaderServer:
         self.port = port
         Thread(target=self.accept_listeners).start()
         self.listeners = []
+        self.running = True
 
     def accept_listeners(self):
         server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         server.bind(("localhost", self.port))
         server.listen(5)
-        while True:
+        while self.running:
             conn, addr = server.accept()
             data = conn.recv(1024)
             message = ServerProtocol.parse_message(data)
@@ -29,6 +30,8 @@ class LoaderServer:
                 print message
                 conn.sendall(ServerProtocol.RejectedMessage())
                 conn.close()
+        for listener in self.listeners:
+            listener.close()
 
     def send_event(self, event):
         serialized = json.dumps(event.serialize())
@@ -46,3 +49,4 @@ class LoaderServer:
         msg = "END"
         for listener in self.listeners:
             listener.sendall(msg)
+        self.running = False

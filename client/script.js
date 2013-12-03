@@ -466,6 +466,7 @@ $( document ).ready(function() {
         var argv = $inputBox.val().split(" ");
         executeCommand(argv);
 		$inputBox.val("");
+        $("#cmd").modal('hide');
 	});
 
 });
