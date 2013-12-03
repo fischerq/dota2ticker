@@ -43,15 +43,16 @@ class ConnectionSocket(DataSocket):
 
 
 class ConnectionServer:
-    def __init__(self, host, port, registration_port):
+    def __init__(self, host, port, public_address, registration_port):
         self.server = WSGIServer((host, port), ConnectionApplication(self))
+        self.public_address = public_address
         self.game_servers = []
         self.next_gs_port = port + 1
         self.next_loader_port = registration_port + 1
         self.loaders = []
         self.requested_games = []
         self.registration_port = registration_port
-        self.registration_server = StreamServer(("localhost", self.registration_port), self.handle_registration)
+        self.registration_server = StreamServer((host, self.registration_port), self.handle_registration)
         self.registration_server.start()
 
     def find_game_server(self, message):
@@ -109,7 +110,7 @@ class ConnectionServer:
             self.requested_games.append(game_id)
         else:
             print "Creating server for game {} that registers at {}".format(game_id, self.registration_port)
-            subprocess.Popen(["python", "server/executables/gameserver_main.py", str(game_id),  str(self.next_gs_port), str(self.registration_port), str(loader_port)])
+            subprocess.Popen(["python", "server/executables/gameserver_main.py", str(game_id),  str(self.next_gs_port), str(self.registration_port), self.public_address, str(loader_port)])
             self.next_gs_port += 1
 
     def start(self):

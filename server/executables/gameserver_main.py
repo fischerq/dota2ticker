@@ -7,10 +7,11 @@ from server.loader.loaderproxy import LoaderProxy
 game_id = int(sys.argv[1])
 port = int(sys.argv[2])
 registration_port = int(sys.argv[3])
-loader_port = int(sys.argv[4])
+public_ip = sys.argv[4]
+loader_port = int(sys.argv[5])
 
-print "Started gameserver for game {} at {}, registering at {}, loading from {}".format(port, game_id, registration_port, loader_port)
-server = GameServer("0.0.0.0", port, game_id)
+print "Started gameserver for game {} at {}, registering at {}, loading from {}".format(game_id, port, registration_port, loader_port)
+server = GameServer("0.0.0.0", port, public_ip, game_id)
 
 loader = LoaderProxy(game_id, server, loader_port)
 loader.start()

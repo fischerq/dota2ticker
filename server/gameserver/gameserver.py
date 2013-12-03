@@ -77,9 +77,10 @@ import time
 
 
 class GameServer:
-    def __init__(self, host, port, game_id):
+    def __init__(self, host, port, public_address,  game_id):
         self.host = host
         self.port = port
+        self.public_address = public_address
         self.clients = []
         self.clients_lock = Lock()
         self.game_id = game_id

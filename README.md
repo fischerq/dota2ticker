@@ -17,3 +17,21 @@ apt-get install python-dev python-snappy python-protobuf
 
 easy_install gevent
 easy_install simplejson
+
+install protobuf 2.5:
+wget http://protobuf.googlecode.com/files/protobuf-2.5.0.tar.gz
+tar -xzvf file.tar.gz
+./configure
+make
+make check
+make install
+in /python:
+change /etc/ld.so.conf: 
+add line 
+    /usr/local/lib
+export PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=cpp
+
+     $ python setup.py build
+     $ python setup.py test
+
+	 
