@@ -66,6 +66,7 @@ class GameSocket(DataSocket):
                         mode = GameProtocol.SubscribeModes.PAST
                 self.server.add_subscriber(self.client, mode, current_time)
                 print "sending state for time {}".format(current_time)
+                print self.server.game.get_state(current_time).data
                 response = GameProtocol.StateMessage(self.server.game, current_time)
             elif message_type == GameProtocol.MessageTypes.UNSUBSCRIBE:
                 print "Unsubscribing"
@@ -162,6 +163,8 @@ class GameServer:
         for client in self.subscribers["Event"]:
             client.send_event(event)
 
+    def finish(self):
+        self.game.finish()
 
 class Client:
     def __init__(self, id_):

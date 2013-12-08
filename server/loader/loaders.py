@@ -10,30 +10,35 @@ class ObjectLoader(object):
         self.identifier = None
         self.changes = []
         self.state = None
+        self.removed = False
+        self.checks = []
+        self.loader.loaders.append(self)
 
     def check(self):
         self.state = self.loader.game.current_state
-        self.check_changes()
-
-    def check_changes(self):
-        pass
+        for check in self.checks:
+            check()
+            if self.removed:
+                break
 
     def remove(self):
         self.loader.add_change(Change(ChangeType.DELETE, self.id))
+        self.removed = True
 
     def set_attribute(self, attribute, value):
         self.loader.add_change(Change(ChangeType.SET, self.id, attribute, value))
 
     def check_attribute(self, attribute, value):
-        if self.state.get(self.id,attribute) is not value:
-            if attribute is "name":
+        if self.state.get(self.id, attribute) != value:
+            if attribute == "name":
                 print "setting name {}:{}".format(self.id, value)
             self.loader.add_change(Change(ChangeType.SET, self.id, attribute, value))
-
-    def check_removal(self):
-        return False
+            return True
+        else:
+            return False
 
 ObjectTypes = enum("GAME",
+                   "DRAFT",
                    "PLAYER",
                    "HERO",
                    "ILLUSION")
@@ -47,14 +52,17 @@ class GameLoader(ObjectLoader):
         self.set_attribute("game_id", game_id)
         self.set_attribute("game_mode", self.replay.info.game_mode)
         self.set_attribute("state", self.replay.info.game_state)
+        self.checks.append(self.check_game)
 
-    def check_changes(self):
+    def check_game(self):
         if self.replay.info.game_state is not self.state.get(self.id, "state"):
             if self.replay.info.game_state is "loading":
                 pass
             elif self.replay.info.game_state is "draft":
                 print "draft {}".format(self.replay.tick)
                 self.set_attribute("draft_start_time", self.replay.tick)
+                draft_loader = DraftLoader(self.loader, self.replay.info)
+                self.set_attribute("draft", draft_loader.id)
             elif self.replay.info.game_state is "pregame":
                 print "pregame {}".format(self.replay.tick)
                 self.set_attribute("pregame_start_time", self.replay.tick)
@@ -64,7 +72,6 @@ class GameLoader(ObjectLoader):
                     if player.index is not None:
                         player_loader = PlayerLoader(self.loader, player)
                         players.append(player_loader.id)
-                        self.loader.loaders.append(player_loader)
                 self.set_attribute("players", players)
             elif self.replay.info.game_state is "game":
                 print "game {}".format(self.replay.tick)
@@ -77,14 +84,37 @@ class GameLoader(ObjectLoader):
         self.check_attribute("pausing_team", self.replay.info.pausing_team)
 
 
+class DraftLoader(ObjectLoader):
+    def __init__(self, loader, info):
+        super(DraftLoader, self).__init__(loader)
+        self.info = info
+        self.set_attribute("type", ObjectTypes.DRAFT)
+        self.checks.append(self.check_draft)
+
+    def check_draft(self):
+        self.check_attribute("active_team", self.info.active_team)
+        if self.info.pick_state is not None:
+            action, number = self.info.pick_state
+            self.check_attribute("active_action", action)
+            self.check_attribute("action_number", number)
+#        print "extra time: {}".format(self.info.extra_time)
+        self.check_attribute("extra_time", self.info.extra_time)
+        self.check_attribute("captain_ids", self.info.captain_ids)
+        self.check_attribute("banned_heroes", self.info.banned_heroes)
+        self.check_attribute("selected_heroes", self.info.selected_heroes)
+
+
 class EntityLoader(ObjectLoader):
     def __init__(self, loader, entity):
         super(EntityLoader, self).__init__(loader)
         self.identifier = entity.ehandle
         self.entity = entity
+        self.checks.append(self.check_entity)
 
-    def check_removal(self):
-        return not self.entity.exists
+    def check_entity(self):
+        if not self.entity.exists:
+            print "Removing {} {}".format(self.id, self.__class__)
+            self.remove()
 
 
 def encode_position(position):
@@ -98,8 +128,9 @@ class BaseNPCLoader(EntityLoader):
     def __init__(self, loader, npc):
         super(BaseNPCLoader, self).__init__(loader, npc)
         self.npc = npc
+        self.checks.append(self.check_base_npc)
 
-    def check_changes(self):
+    def check_base_npc(self):
         self.check_attribute("is_alive", self.npc.is_alive)
         self.check_attribute("position", encode_position(self.npc.position))
         self.check_attribute("level", self.npc.level)
@@ -124,9 +155,9 @@ class HeroLoader(BaseNPCLoader):
                 if loader.identifier is self.hero.replication_hero.ehandle:
                     replicating_id = loader.id
             self.set_attribute("replicating", replicating_id)
+        self.checks.append(self.check_hero)
 
-    def check_changes(self):
-        super(HeroLoader, self).check_changes()
+    def check_hero(self):
         self.check_attribute("name", self.hero.name)
         self.check_attribute("respawn_time", self.hero.respawn_time)
         self.check_attribute("xp", self.hero.xp)
@@ -156,8 +187,12 @@ class PlayerLoader(EntityLoader):
             self.loader.loaders.append(hero_loader)
         else:
             self.set_attribute("hero", None)
+        self.checks.append(self.check_hero)
+        print "checks {} {}".format(self.id, self.checks)
+        self.checks.remove(self.check_entity)  #do not remove players when they get invalid -> reconnecting
+        print "checks removed {}".format(self.checks)
 
-    def check_changes(self):
+    def check_hero(self):
         if not self.player.exists:
             index = self.state.get(self.id, "index")
             found = False
@@ -187,7 +222,3 @@ class PlayerLoader(EntityLoader):
         self.check_attribute("has_buyback", self.player.has_buyback)
         self.check_attribute("buyback_cooldown_time", self.player.buyback_cooldown_time)
         self.check_attribute("last_buyback_time", self.player.last_buyback_time)
-
-    def check_removal(self):
-        # keep players after disconnect
-        return False

@@ -20,5 +20,19 @@ body {
 /* Set the fixed height of the footer here */
 #footer {
   height: 60px;
-  background-color: #f5f5f5;
+  background-color: #F5F5F5;
+}
+
+#main {
+    max-width: 730px;
+    background-color:#F5F5F5;
+}
+
+#events {
+    text-align: left;
+    padding: 10px;
+}
+
+#viewer {
+    padding-top: 50px;
 }

@@ -31,7 +31,7 @@ def check(message):
     if message["Type"] is MessageTypes.REGISTER:
         result = check_field(message, "GameID")
     elif message["Type"] is MessageTypes.CONFIRM:
-        result = check_field(message, "Data")
+        pass
     elif message["Type"] is MessageTypes.CONFIGURE:
         result = check_field(message, "Setting") and\
             check_field(message, "Value")

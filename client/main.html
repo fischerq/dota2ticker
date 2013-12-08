@@ -6,7 +6,6 @@
     <!-- Bootstrap -->
     <link href="css/bootstrap.min.css" rel="stylesheet">
 
-    <link href="css/jumbotron-narrow.css" rel="stylesheet">
     <link href="css/style.css" rel="stylesheet">
 
     <link rel="icon" type="image/png" href="data/ui/favicon.png" />
@@ -93,23 +92,22 @@
   </div><!-- /.modal-dialog -->
 </div><!-- /.modal -->
 
-    <div class="jumbotron">
-      <h2> <div id="header-title">Game_ID</div></h2>
+    <div class="container" id="main">
+     <h2> <div id="header-title">Game_ID</div></h2>
       <div id="header" style="text-align: center;">
         <div id="time">0:00</div>
       </div>
       <div class="row">
-        <div class="col-lg-6">
+        <div class="col-lg-6" id="viewer">
             <div id="minimap"></div>
             <h3>Unit Data</h3>
             <div id="view-data">
                 data
             </div>
         </div>
-
-        <div class="col-lg-6" style="max-height:300px;">
+        <div class="col-lg-6">
             <h3>Events</h3>
-            <div id="events"></div>
+                <div id="events">events</div>
         </div>
        </div>
     </div>
@@ -119,8 +117,7 @@
 
       <div class="footer">
           <div class="container">
-        <p>Dota2Ticker.com. Powered by <a href="https://github.com/skadistats/skadi/">Skadi</a>.</p>
-
+            <p>Dota2Ticker.com. Powered by <a href="https://github.com/skadistats/skadi/">Skadi</a>.</p>
           </div>
       </div>
   </body>

@@ -91,7 +91,7 @@ class Game:
             if event.time <= time:
                 events.append(event.data)
             else:
-                break;
+                break
         return events
 
     def get_update(self, start, end):
@@ -237,7 +237,8 @@ class State(dict):
 
     def get(self, id, attribute):
         if id not in self.data:
-            print "Bad Id {}".format(id)
+            print "Bad Id {} {} ".format(id, attribute)
+            return None
         if attribute not in self.data[id]:
             return None
         return self.data[id][attribute]

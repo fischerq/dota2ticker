@@ -57,6 +57,7 @@ var MessageType = {
 var EventType = {
         STATECHANGE: "StateChange",
         CHATEVENT: "ChatEvent",
+        DRAFTEVENT: "DraftEvent",
         TEXTEVENT: "TextEvent"
 };
 
@@ -103,7 +104,7 @@ function checkMessage(message) {
         result = checkField(message, "ClientID") &&
                  checkField(message, "GameID");
     else if (message["Type"] == MessageType.CONFIRM)
-        result = checkField(message, "Data");
+    {}
     else if (message["Type"] == MessageType.CONFIGURE)
         result = checkField(message, "Setting") &&
                  checkField(message, "Value");

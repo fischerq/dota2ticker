@@ -2,6 +2,7 @@ from server.libs.utils import enum
 
 EventTypes = enum("StateChange",
                   "ChatEvent",
+                  "DraftEvent",
                   "TextEvent")
 
 
@@ -45,4 +46,13 @@ def ChatEvent(time, type, value, player_ids):
 def TextEvent(time, text):
     event = Event(time, 10, EventTypes.TextEvent)
     event.data["Text"] = text
+    return event
+
+
+def DraftEvent(time, team, action, hero, time_used):
+    event = Event(time, 20, EventTypes.DraftEvent)
+    event.data["Team"] = team
+    event.data["Action"] = action
+    event.data["Hero"] = hero
+    event.data["TimeUsed"] = time_used
     return event

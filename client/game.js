@@ -21,6 +21,7 @@ function Game(){
 
 var ObjectTypes = {
     GAME : "GAME",
+    DRAFT : "DRAFT",
     PLAYER : "PLAYER",
     HERO : "HERO",
     ILLUSION : "ILLUSION"

@@ -1,6 +1,12 @@
 #!/usr/bin/env python
 
 
+class Undefined:
+    pass
+
+UNDEFINED = Undefined()
+
+
 def enum(*sequential):
     enums = dict()
     for i, x in enumerate(sequential):

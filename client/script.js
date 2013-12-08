@@ -10,14 +10,10 @@ $( document ).ready(function() {
 
         var events_display = $("#events");
 
-        var view_data = $("#view-data");
+        var view_data = null;
         var images = {};
 
-        var minimap = new Kinetic.Stage({
-                container: 'minimap',
-                width: 300,
-                height: 300
-              });
+        var minimap = null;
         var layers = {};
         var TICKS_PER_SEC = 30;
         var event_window = 60*TICKS_PER_SEC;
@@ -52,7 +48,7 @@ $( document ).ready(function() {
                 refreshSelected();
                 refreshHeader();
             }
-            setTimeout(refresh, refresh_interval);
+            //setTimeout(refresh, refresh_interval);
         }
 
         function formatTime(time){
@@ -104,33 +100,39 @@ $( document ).ready(function() {
         }
 
         function init(){
-            var title = $("#header-title");
-            //console.log("updated header title");
-            title.html(game_id);
+            view_data = $("#view-data");
 
-            layers["background"] = new Kinetic.Layer();
-            minimap.add(layers["background"]);
-            layers["buildings"] = new Kinetic.Layer();
-            minimap.add(layers["buildings"]);
-            layers["heroes"] = new Kinetic.Layer();
-            minimap.add(layers["heroes"]);
-            var imageLoader = new PxLoader();
-            loadImage(imageLoader, "data/minimap.png", "minimap", function(){
-                layers["background"].add(images["minimap"]);
-                console.log("added minimap");
-            });
-            imageLoader.addCompletionListener(refresh, "minimap");
-            imageLoader.start();
+            if(minimap == null)
+            {
+                minimap = new Kinetic.Stage({
+                    container: 'minimap',
+                    width: 300,
+                    height: 300
+                  });
 
-            setTimeout(refresh, refresh_interval);
+                layers["background"] = new Kinetic.Layer();
+                minimap.add(layers["background"]);
+                layers["buildings"] = new Kinetic.Layer();
+                minimap.add(layers["buildings"]);
+                layers["heroes"] = new Kinetic.Layer();
+                minimap.add(layers["heroes"]);
+                var imageLoader = new PxLoader();
+                loadImage(imageLoader, "data/minimap.png", "minimap", function(){
+                    layers["background"].add(images["minimap"]);
+                    console.log("added minimap");
+                });
+                imageLoader.addCompletionListener(refresh, "minimap");
+                imageLoader.start();
+            }
+            //setTimeout(refresh, refresh_interval);
         }
 
         function refreshHeader(){
             var time= $("#time");
-            var paused = "";
+            /*var paused = "";
             if(game.current_state.get(0, "pausing_team") != null)
-                paused = "<br/> Currently paused by "+game.current_state.get(0, "pausing_team");
-            time.html(formatTime(game.current_state.time)+paused);
+                paused = "<br/> Currently paused by "+game.current_state.get(0, "pausing_team");*/
+            time.html(formatTime(game.current_state.time));//+paused);
         }
 
         function refreshSelected(){
@@ -170,6 +172,10 @@ $( document ).ready(function() {
                 {
                     p.innerHTML = formatTime(event["Time"]) +" :<br/> "+event["Text"];
                 }
+                else if(event["Type"] == EventType.DRAFTEVENT)
+                {
+                    p.innerHTML = formatTime(event["Time"]) +" :<br/>The "+event["Team"]+ " " + event["Action"]+" "+ event["Hero"]+ " after "+Math.floor(event["TimeUsed"]/TICKS_PER_SEC)+" sec.";
+                }
                 else
                 {
                     p.innerHTML = "Event at "+formatTime(event["Time"])+" :<br/> "+event["Type"];
@@ -178,9 +184,37 @@ $( document ).ready(function() {
             }
         }
 
+        function refreshDraft(){
+            var state = game.current_state;
+            var draft = state.get(0, "draft");
+            var banned = state.get(draft, "banned_heroes");
+            var picked = state.get(draft, "selected_heroes");
+            for(var i =0; i<5; ++i){
+                if(banned[i] != null){
+                    $("#radiant_ban_"+i).html("<img src=\"data/heroes/"+banned[i]+".png\" width=50px/>");
+                    //console.log("radiant ban ",i, banned[i]);
+                }
+                if(banned[i+5] != null){
+                    $("#dire_ban_"+i).html("<img src=\"data/heroes/"+banned[i+5]+".png\" width=50px/>");
+                    //console.log("dire ban ",i+5, banned[i+5]);
+                }
+            }
+            for(var i =0; i<5; ++i){
+                if(picked[i] != null){
+                    $("#radiant_pick_"+i).html("<img src=\"data/heroes/"+picked[i]+".png\" width=50px/>");
+                    //console.log("radiant pick ",i, picked[i]);
+                }
+                if(picked[i+5] != null){
+                    $("#dire_pick_"+i).html("<img src=\"data/heroes/"+picked[i+5]+".png\" width=50px/>");
+                    //console.log("dire pick ",i+5, picked[i+5]);
+                }
+            }
+        }
+
         function refreshDisplay(){
             if(!(0 in game.current_state.data))
                 return;
+
             var players = game.current_state.get(0,"players");
             for(var player in players){
                 var hero_id = game.current_state.get(players[player], "hero");
@@ -188,9 +222,11 @@ $( document ).ready(function() {
                 {
                     var icon = game.current_state.get(hero_id, "name")+"_icon";
                     if(!game.current_state.get(hero_id, "is_alive"))
-                       images[icon].hide();
-                    else
+                        images[icon].hide();
+                    else{
+                        //console.log("icon",icon);
                         images[icon].show();
+                    }
                     //console.log("Trying to draw ", game.current_state.get(hero_id, "name"));
                     //console.log(game.current_state.get(hero_id, "name"), game.current_state.get(hero_id, "position").x, game.current_state.get(hero_id, "position").y, convertCoordinates(decodePosition(game.current_state.get(hero_id, "position")), parameters_minimap));
                     var icon_position = convertCoordinates(decodePosition(game.current_state.get(hero_id, "position")), parameters_minimap);
@@ -208,14 +244,16 @@ $( document ).ready(function() {
                     accepted = accepted && changes[change]["ID"] == object_id;
                 if(change_type != undefined)
                     accepted = accepted && changes[change]["Type"] == change_type;
-                if (object_type != undefined){
-                    if(changes[change]["Type"] == ChangeTypes.CREATE)
-                        accepted = false;
-                    else
+                if(changes[change]["Type"] == ChangeTypes.SET){
+                    if (object_type != undefined)
                         accepted = accepted && game.current_state.get(changes[change]["ID"], "type") == object_type;
+                    if (attribute != undefined)
+                        accepted = accepted && changes[change]["Attribute"] == attribute;
                 }
-                if (attribute != undefined)
-                    accepted = accepted && changes[change]["Attribute"] == attribute;
+                else{
+                    if (object_type != undefined || attribute != undefined)
+                        accepted = false;
+                }
                 if (accepted)
                     result.push(changes[change])
             }
@@ -252,14 +290,49 @@ $( document ).ready(function() {
 
         function updateStateReset(state) {
             console.log("state reset", state);
-            init();
-            if(state.exists(0)){
+
+            var title = $("#header-title");
+            //console.log("updated header title");
+            title.html(game_id);
+
+             if(state.exists(0)){
                 valid_game = true;
+             }
+            else return;
+
+            var game_state = state.get(0, "state");
+            if(game_state == "draft"){
+                var draft_display = "<table><tr><td colspan = 5>Radiant</td><td id=\"reserve_radiant\"></td></tr><tr><td>Bans</td>"
+                for(var i =0; i<5; ++i)
+                    draft_display+="<td id=\"radiant_ban_"+i+"\"></td>";
+                draft_display += "</tr><tr><td>Picks</td>";
+                for(var i =0; i<5; ++i)
+                    draft_display+="<td id=\"radiant_pick_"+i+"\"></td>";
+                draft_display += "</tr>";
+
+                draft_display += "<tr><td colspan = 5>Dire</td><td id=\"reserve_dire\"></td></tr><tr><td>Bans</td>"
+                for(var i =0; i<5; ++i)
+                    draft_display+="<td id=\"dire_ban_"+i+"\"></td>";
+                draft_display += "</tr><tr><td>Picks</td>";
+                for(var i =0; i<5; ++i)
+                    draft_display+="<td id=\"dire_pick_"+i+"\"></td>";
+                draft_display += "</tr></table>";
+                console.log("Set Display to draft");
+                $("#viewer").html(draft_display);
+
+                refreshDraft();
+            }
+            else if(game_state == "pregame" || game_state == "game" || game_state == "postgame"){
+                console.log("Set Display to game");
+                $("#viewer").html("<div id=\"minimap\"></div><h3>Unit Data</h3><div id=\"view-data\">data</div>");
+                init();
+
                 var loader = new PxLoader();
                 var players = state.get(0, "players");
                 for(var player in players) {
                     var hero_id = state.get(players[player], "hero");
                     if(hero_id != null){
+                        console.log("requesting to load", hero_id, state.get(hero_id, "name"));
                         loadHeroData(state.get(hero_id, "name"), hero_id, loader);
                     }
                 }
@@ -275,24 +348,61 @@ $( document ).ready(function() {
                     valid_game = true;
                 else return;
             }
-            //update selected object if needed
-            var selected_changes = filter_changes(update["Changes"], selected_unit);
-            if(selected_changes.length > 0)
-                refreshSelected();
-            //load images if needed
-            var hero_name_changes = filter_changes(update["Changes"], undefined, ObjectTypes.HERO, "name");
-            if(hero_name_changes.length > 0) {
-                var heroesLoader = new PxLoader();
-                for( var i in hero_name_changes){
-                    if(hero_name_changes[i]["Value"] != null){
-                        loadHeroData(hero_name_changes[i]["Value"], hero_name_changes[i]["ID"], heroesLoader);
-                    }
+            var state_changes = filter_changes(update["Changes"], undefined, ObjectTypes.GAME, "state");
+            for(var i=0; i<state_changes.length; ++i ){
+                console.log("state change", state_changes[i]["Value"]);
+                if(state_changes[i]["Value"] == "draft"){
+                    var draft_display = "<table><tr><td colspan = 5>Radiant</td><td id=\"reserve_radiant\"></td></tr><tr><td>Bans</td>"
+                    for(var i =0; i<5; ++i)
+                        draft_display+="<td id=\"radiant_ban_"+i+"\"></td>";
+                    draft_display += "</tr><tr><td>Picks</td>";
+                    for(var i =0; i<5; ++i)
+                        draft_display+="<td id=\"radiant_pick_"+i+"\"></td>";
+                    draft_display += "</tr>";
+
+                    draft_display += "<tr><td colspan = 5>Dire</td><td id=\"reserve_dire\"></td></tr><tr><td>Bans</td>"
+                    for(var i =0; i<5; ++i)
+                        draft_display+="<td id=\"dire_ban_"+i+"\"></td>";
+                    draft_display += "</tr><tr><td>Picks</td>";
+                    for(var i =0; i<5; ++i)
+                        draft_display+="<td id=\"dire_pick_"+i+"\"></td>";
+                    draft_display += "</tr></table>";
+                    console.log("Set Display to draft");
+                    $("#viewer").html(draft_display);
                 }
-                heroesLoader.addCompletionListener(refreshDisplay);
-                heroesLoader.start();
+                else if(state_changes[i]["Value"] == "pregame"){
+                    console.log("Set Display to game");
+                $("#viewer").html("<div id=\"minimap\"></div><h3>Unit Data</h3><div id=\"view-data\">data</div>");
+                    init();
+                }
             }
-            else
-                refreshDisplay();
+            if(game.current_state.get(0, "state")== "draft"){
+                var ban_changes = filter_changes(update["Changes"], undefined, ObjectTypes.DRAFT, "banned_heroes");
+                var pick_changes = filter_changes(update["Changes"], undefined, ObjectTypes.DRAFT, "selected_heroes");
+                if(ban_changes.length > 0 || pick_changes.length > 0)
+                    refreshDraft();
+            }
+            else if(game.current_state.get(0, "state")== "pregame" || game.current_state.get(0, "state")== "game" || game.current_state.get(0, "state")== "postgame")
+            {
+                //update selected object if needed
+                var selected_changes = filter_changes(update["Changes"], selected_unit);
+                if(selected_changes.length > 0)
+                    refreshSelected();
+                //load images if needed
+                var hero_name_changes = filter_changes(update["Changes"], undefined, ObjectTypes.HERO, "name");
+                if(hero_name_changes.length > 0) {
+                    var heroesLoader = new PxLoader();
+                    for( var i in hero_name_changes){
+                        if(hero_name_changes[i]["Value"] != null){
+                            loadHeroData(hero_name_changes[i]["Value"], hero_name_changes[i]["ID"], heroesLoader);
+                        }
+                    }
+                    heroesLoader.addCompletionListener(refreshDisplay);
+                    heroesLoader.start();
+                }
+                else
+                    refreshDisplay();
+            }
             refreshEvents();
             refreshHeader();
         }
