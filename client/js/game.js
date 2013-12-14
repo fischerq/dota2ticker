@@ -1,17 +1,18 @@
 var SNAPSHOT_INTERVAL = 1000;
+var TICKS_PER_SEC = 30;
 
 
 function Game(){
     this.events = new Array();
-    this.current_state = new State();
+    this.state = new State();
 
     this.setState = function(time, state, events) {
-        this.current_state.set(time, state);
+        this.state.set(time, state);
         this.events = events;
     }
 
     this.addUpdate = function(update) {
-        this.current_state.apply(update);
+        this.state.apply(update);
     }
 
     this.addEvent = function(event) {
@@ -95,3 +96,26 @@ function State(){
     }
 }
 
+function filterChanges( changes, object_id, object_type, attribute, change_type){
+    var result = [];
+    for(var change in changes){
+        var accepted = true;
+        if(object_id != undefined)
+            accepted = accepted && changes[change]["ID"] == object_id;
+        if(change_type != undefined)
+            accepted = accepted && changes[change]["Type"] == change_type;
+        if(changes[change]["Type"] == ChangeTypes.SET){
+            if (object_type != undefined)
+                accepted = accepted && game.state.get(changes[change]["ID"], "type") == object_type;
+            if (attribute != undefined)
+                accepted = accepted && changes[change]["Attribute"] == attribute;
+        }
+        else{
+            if (object_type != undefined || attribute != undefined)
+                accepted = false;
+        }
+        if (accepted)
+            result.push(changes[change])
+    }
+    return result;
+}
