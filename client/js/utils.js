@@ -7,7 +7,7 @@ function DataConnection(address, port, onmessage, onopen, onclose)
     if(typeof(onmessage)==='undefined') onmessage = function(data){};
     if(typeof(onopen)==='undefined') onopen = function(e){};
     if(typeof(onclose)==='undefined') onclose = function(e){};
-
+    console.log("data connection", address, port, onmessage, onopen, onclose);
 	this.address = address;
 	this.port = port;
 	var host = "ws://" + this.address + ":" + this.port;
@@ -66,18 +66,23 @@ function ImageDirectory(){
             image: img
             });
         console.log("registered ",name, self.images[name]);
-    }
+    };
 
     this.loadImage = function(loader, file, name, callback) {
         if(name in self.images) {
             console.log("prevented reloading", name, file);
             return;
         }
+        self.images[name] = null;
         loader.addImage(file, name);
         loader.addProgressListener(function(e){
             self.registerImage(name, e.resource.img);
             callback();
         }, name);
+    };
+
+    this.get = function(name){
+        return self.images[name];
     }
 }
 

@@ -32,9 +32,8 @@ function checkConnectMessage(message) {
             break;
         case ConnectMessageType.CLIENT_INFO:
             result = checkField(message, "Host") &&
-                checkField(message, "PortRequest") &&
-                checkField(message, "PortListener") &&
-                checkField(message, "ClientID");
+                checkField(message, "Port") &&
+                checkField(message, "GameID");
             break;
         case ConnectMessageType.GAME_AVAILABILITY:
             result = checkField(message, "Availability");
@@ -52,12 +51,13 @@ function ConnectionConnection(game_id, game_callback, rejection_callback){
     if(typeof(rejection_callback)==='undefined') rejection_callback = function(){};
 
     var self = this;
-    this.connection = new DataConnection(HOST_IP, HOST_PORT, this.handleMessage, this.sendConnect);
+    this.connection = null;
     this.game_id = game_id;
     this.game_callback = game_callback;
     this.rejection_callback = rejection_callback;
 
     this.handleMessage = function(message) {
+        console.log("connect message", message);
         if(checkConnectMessage(message)) {
             switch(message["Type"]) {
                 case ConnectMessageType.GAME_AVAILABILITY:
@@ -65,7 +65,7 @@ function ConnectionConnection(game_id, game_callback, rejection_callback){
                         console.log("Yay, game available. wait for connection info");
                     else if(message["Availability"] == AvailabilityType.PENDING)//Try again later
                     {
-                        setTimeout(function(){self.sendConnect()}, 1000);
+                        setTimeout(function(){self.connection = new DataConnection(HOST_IP, HOST_PORT, self.handleMessage, self.sendConnect);}, 1000);
                         console.log("game is pending, try again in 1sec");
                     }
                     else if(message["Availability"] == AvailabilityType.UNAVAILABLE) {
@@ -96,8 +96,9 @@ function ConnectionConnection(game_id, game_callback, rejection_callback){
         connectRequest["Type"] = ConnectMessageType.CONNECT;
         connectRequest["GameID"] = self.game_id;
         self.connection.send(connectRequest);
-        console.log("sending connection message");
     };
+
+    this.connection = new DataConnection(HOST_IP, HOST_PORT, this.handleMessage, this.sendConnect);
 }
 
 
@@ -171,7 +172,7 @@ function checkGameMessage(message) {
 
 function GameConnection(game_id, host, port, viewer){
     var self = this;
-    this.connection = new DataConnection(host, port, this.handleMessage, this.openConnection, this.closeConnection);
+    this.connection = null;
     this.game = new Game();
     this.confirmed = false;
     this.viewer = viewer;
@@ -277,5 +278,7 @@ function GameConnection(game_id, host, port, viewer){
         self.connection.close();
         self.confirmed = false;
         self.subscribed = false;
-    }
+    };
+
+    this.connection = new DataConnection(host, port, this.handleMessage, this.openConnection, this.closeConnection);
 }

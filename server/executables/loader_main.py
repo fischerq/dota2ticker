@@ -1,4 +1,4 @@
-from server.loader.gameloader import ReplayLoader
+from server.loader.replayloader import ReplayLoader
 from server.loader.loaderserver import LoaderServer
 from server.connectionserver.registrationproxy import RegistrationProxy
 import sys

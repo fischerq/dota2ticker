@@ -1,4 +1,4 @@
-from server.loader.gameloader import ReplayLoader
+from server.loader.replayloader import ReplayLoader
 import simplejson as json
 
 game_id = 303487989

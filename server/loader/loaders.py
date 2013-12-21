@@ -188,9 +188,9 @@ class PlayerLoader(EntityLoader):
         else:
             self.set_attribute("hero", None)
         self.checks.append(self.check_hero)
-        print "checks {} {}".format(self.id, self.checks)
+        #print "checks {} {}".format(self.id, self.checks)
         self.checks.remove(self.check_entity)  #do not remove players when they get invalid -> reconnecting
-        print "checks removed {}".format(self.checks)
+        #print "checks removed {}".format(self.checks)
 
     def check_hero(self):
         if not self.player.exists:

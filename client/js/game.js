@@ -3,21 +3,46 @@ var TICKS_PER_SEC = 30;
 
 
 function Game(){
-    this.events = new Array();
+    var self = this;
+    this.events = [];
     this.state = new State();
 
     this.setState = function(time, state, events) {
-        this.state.set(time, state);
-        this.events = events;
-    }
+        self.state.set(time, state);
+        self.events = events;
+    };
 
     this.addUpdate = function(update) {
-        this.state.apply(update);
-    }
+        self.state.apply(update);
+    };
 
     this.addEvent = function(event) {
-        this.events.push(event);
-    }
+        self.events.push(event);
+    };
+
+    this.filterChanges = function(changes, object_id, object_type, attribute, change_type){
+        var result = [];
+        for(var change in changes){
+            var accepted = true;
+            if(object_id != undefined)
+                accepted = accepted && changes[change]["ID"] == object_id;
+            if(change_type != undefined)
+                accepted = accepted && changes[change]["Type"] == change_type;
+            if(changes[change]["Type"] == ChangeTypes.SET){
+                if (object_type != undefined)
+                    accepted = accepted && self.state.get(changes[change]["ID"], "type") == object_type;
+                if (attribute != undefined)
+                    accepted = accepted && changes[change]["Attribute"] == attribute;
+            }
+            else{
+                if (object_type != undefined || attribute != undefined)
+                    accepted = false;
+            }
+            if (accepted)
+                result.push(changes[change])
+        }
+        return result;
+    };
 }
 
 var ObjectTypes = {
@@ -36,7 +61,7 @@ var ChangeTypes = {
 
 function State(){
     this.time = -1;
-    this.data = new Object();
+    this.data = {};
 
     this.set = function(time, state){
         this.time = time;
@@ -48,7 +73,7 @@ function State(){
             }
         }*/
         console.log("set state", this);
-    }
+    };
 
     this.apply = function(update){
         if(update.time < this.time){
@@ -75,7 +100,7 @@ function State(){
             else
                 console.log("Bad change type");
         }
-    }
+    };
 
     this.get = function(id, attribute){
         if(!(id in this.data)){
@@ -85,7 +110,7 @@ function State(){
         if(!(attribute in this.data[id]))
             return null;
         return this.data[id][attribute];
-    }
+    };
 
     this.exists = function(id) {
         if(this.data == null || this.data == undefined){
@@ -93,29 +118,6 @@ function State(){
             return false;
         }
         return id in this.data;
-    }
+    };
 }
 
-function filterChanges( changes, object_id, object_type, attribute, change_type){
-    var result = [];
-    for(var change in changes){
-        var accepted = true;
-        if(object_id != undefined)
-            accepted = accepted && changes[change]["ID"] == object_id;
-        if(change_type != undefined)
-            accepted = accepted && changes[change]["Type"] == change_type;
-        if(changes[change]["Type"] == ChangeTypes.SET){
-            if (object_type != undefined)
-                accepted = accepted && game.state.get(changes[change]["ID"], "type") == object_type;
-            if (attribute != undefined)
-                accepted = accepted && changes[change]["Attribute"] == attribute;
-        }
-        else{
-            if (object_type != undefined || attribute != undefined)
-                accepted = false;
-        }
-        if (accepted)
-            result.push(changes[change])
-    }
-    return result;
-}

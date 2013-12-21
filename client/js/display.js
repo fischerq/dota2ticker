@@ -18,28 +18,26 @@ function GameDisplay(node){
         }
         else return;
 
-        self.node.html("<div id=\"header_display\" style=\"text-align: center;\"></div>" +
+        var new_html ="<div id=\"header_display\" style=\"text-align: center;\">header</div>" +
             "<div class=\"row\">" +
-            "<div class=\"col-lg-6\" id=\"state_display\"></div>" +
-            "<div class=\"col-lg-6\" id=\"event_display\"></div>" +
-            "</div>");
-
+            "<div class=\"col-lg-6\" id=\"state_display\">state</div>" +
+            "<div class=\"col-lg-6\" id=\"event_display\">event</div>" +
+            "</div>";
+        self.node.html(new_html);
         self.header_display = new HeaderDisplay($("#header_display"));
         self.header_display.init(self.game);
-
         self.state_display = new StateDisplay($("#state_display"));
         self.state_display.init(self.game);
-
         self.events_display = new EventDisplay($("#event_display"));
         self.events_display.init(self.game);
     };
 
     this.update = function(update){
         if(!self.valid_game) {
-            var game_creation_change = filterChanges(update["Changes"], 0, undefined, undefined, ChangeTypes.CREATE);
+            var game_creation_change = self.game.filterChanges(update["Changes"], 0, undefined, undefined, ChangeTypes.CREATE);
             if(game_creation_change.length > 0){
                 self.valid_game = true;
-                self.init();
+                self.init(self.game);
             }
             else return;
         }
@@ -48,6 +46,10 @@ function GameDisplay(node){
     };
 
     this.addEvent = function(event){
+        if(!self.valid_game) {
+            console.log("trying to register event for invalid game");
+            return;
+        }
         self.events_display.addEvent(event);
     };
 }
@@ -60,8 +62,8 @@ function HeaderDisplay(node){
     this.init = function(game) {
         self.game = game;
         var state = self.game.state;
-
-        self.node.html("<h2> <div id=\"title\"></div></h2><div id=\"time\"></div>");
+        console.log("init header display");
+        self.node.html("<h2> <div id=\"title\">title</div></h2><div id=\"time\">time</div>");
         var game_id = state.get(0, "game_id");
         $("#title").html(game_id);
         self.refresh();
@@ -73,7 +75,7 @@ function HeaderDisplay(node){
 
     this.refresh = function(){
         var time= $("#time");
-        time.html(formattedTime(self.game.state.time));
+        time.html(formattedTime(self.game.state.time, self.game.state));
     };
 
     this.addEvent = function(event){
@@ -90,6 +92,7 @@ function StateDisplay(node){
 
     this.init = function(game) {
         self.game = game;
+        console.log("init state display");
         var state = self.game.state;
         var game_state = state.get(0, "state");
         if(game_state == "draft"){
@@ -101,9 +104,9 @@ function StateDisplay(node){
     };
 
     this.initDraft = function(){
-        self.node.html("<div id=\"draft_display\"></div>");
-        self.draft_display = new DraftDisplay(self.game, $("draft_display"));
-        self.draft_display.init();
+        self.node.html("<div id=\"draft_display\">draft</div>");
+        self.draft_display = new DraftDisplay($("#draft_display"));
+        self.draft_display.init(self.game);
     };
 
     this.initMinimap = function(){
@@ -116,7 +119,7 @@ function StateDisplay(node){
     };
 
     this.update = function(update){
-        var state_changes = filterChanges(update["Changes"], undefined, ObjectTypes.GAME, "state");
+        var state_changes = self.game.filterChanges(update["Changes"], undefined, ObjectTypes.GAME, "state");
         for(var i=0; i<state_changes.length; ++i ){
             console.log("state change", state_changes[i]["Value"]);
             if(state_changes[i]["Value"] == "draft"){
@@ -147,7 +150,7 @@ function MinimapDisplay(node, data_display){
     this.node = node;
     this.minimap = null;
     this.layers = [];
-    this.images = ImageDirectory();
+    this.imagesDir = new ImageDirectory();
 
     this.data_display = data_display;
 
@@ -177,10 +180,11 @@ function MinimapDisplay(node, data_display){
     }
 
     this.init = function(game) {
+        console.log("init");
         self.game = game;
         var state = self.game.state;
-        self.node.html("<div id=\"minimap\"></div>");
-
+        self.node.html("<div id=\"minimap\">minimap</div>");
+        console.log("init minimap display");
         self.minimap = new Kinetic.Stage({
             container: 'minimap',
             width: 300,
@@ -194,8 +198,8 @@ function MinimapDisplay(node, data_display){
         self.layers["heroes"] = new Kinetic.Layer();
         self.minimap.add(self.layers["heroes"]);
         var loader = new PxLoader();
-        self.images.loadImage(loader, "data/minimap.png", "minimap", function(){
-            self.layers["background"].add(self.images["minimap"]);
+        self.imagesDir.loadImage(loader, "data/minimap.png", "minimap", function(){
+            self.layers["background"].add(self.imagesDir.get("minimap"));
             console.log("added minimap");
         });
         var players = state.get(0, "players");
@@ -219,26 +223,28 @@ function MinimapDisplay(node, data_display){
     }
 
     function getAddHeroImage(id, name) {
-        //console.log("creating adder for ", id, name);
+        console.log("creating adder for ", id, name);
         return function(e){
-                self.images[name].setSize(icon_size, icon_size);
-                /*images[name].createImageHitRegion(function() {
+                console.log("add hero image", name, self.imagesDir);
+                self.imagesDir.get(name).setSize(icon_size, icon_size);
+                /*imagesDir[name].createImageHitRegion(function() {
                     var canvas = new Kinetic.Canvas(this.width, this.height);
                     var context = canvas.getContext();
                     context.drawImage(this.attrs.image, 0, 0);
                 });*/
-                self.images[name].on("click", getSetSelected(id));
-                self.layers["heroes"].add(self.images[name]);
+                self.imagesDir.get(name).on("click", getSetSelected(id));
+                self.layers["heroes"].add(self.imagesDir.get(name));
             };
     }
 
     this.loadHeroData = function(name, id, loader) {
         var icon = name+"_icon";
-        self.images.loadImage(loader, "data/icons/"+name+"_icon.png", icon, getAddHeroImage(id, icon));
+        self.imagesDir.loadImage(loader, "data/icons/"+name+"_icon.png", icon, getAddHeroImage(id, icon));
     };
 
     this.update = function(update){
-        var hero_name_changes = filterChanges(update["Changes"], undefined, ObjectTypes.HERO, "name");
+        //console.log("update");
+        var hero_name_changes = self.game.filterChanges(update["Changes"], undefined, ObjectTypes.HERO, "name");
         if(hero_name_changes.length > 0) {
             var heroesLoader = new PxLoader();
             for( var i in hero_name_changes){
@@ -254,6 +260,7 @@ function MinimapDisplay(node, data_display){
     };
 
     this.refresh = function(){
+        //console.log("refreshing");
         var state = self.game.state;
         var players = state.get(0,"players");
         for(var player in players){
@@ -262,15 +269,15 @@ function MinimapDisplay(node, data_display){
             {
                 var icon = state.get(hero_id, "name")+"_icon";
                 if(!state.get(hero_id, "is_alive"))
-                    self.images[icon].hide();
+                    self.imagesDir.get(icon).hide();
                 else{
                     //console.log("icon",icon);
-                    self.images[icon].show();
+                    self.imagesDir.get(icon).show();
                 }
                 //console.log("Trying to draw ", game.state.get(hero_id, "name"));
                 //console.log(game.state.get(hero_id, "name"), game.state.get(hero_id, "position").x, game.state.get(hero_id, "position").y, convertCoordinates(decodePosition(game.state.get(hero_id, "position")), parameters_minimap));
-                var icon_position = convertCoordinates(decodePosition(game.state.get(hero_id, "position")), parameters_minimap);
-                self.images[icon].setPosition(icon_position.x - (icon_size/2), icon_position.y - (icon_size/2));
+                var icon_position = convertCoordinates(decodePosition(self.game.state.get(hero_id, "position")), parameters_minimap);
+                self.imagesDir.get(icon).setPosition(icon_position.x - (icon_size/2), icon_position.y - (icon_size/2));
             }
         }
         self.minimap.draw();
@@ -284,13 +291,14 @@ function DataDisplay(node){
     this.selected_unit = -1;
 
     this.init = function(game) {
+        console.log("init data display");
         self.game = game;
         self.node.html("<h3>Unit Data</h3><div id=\"data\"></div>");
         self.refresh();
     };
 
     this.update = function(update){
-        var selected_changes = filterChanges(update["Changes"], selected_unit);
+        var selected_changes = self.game.filterChanges(update["Changes"], self.selected_unit);
             if(selected_changes.length > 0)
                 self.refresh();
     };
@@ -340,6 +348,7 @@ function DraftDisplay(node){
     this.node = node;
 
     this.init = function(game) {
+        console.log("init draft display");
         self.game = game;
         var i;
         var draft_display = "<table><tr><td colspan = 5>Radiant</td><td id=\"reserve_radiant\"></td></tr><tr><td>Bans</td>";
@@ -363,14 +372,14 @@ function DraftDisplay(node){
     };
 
     this.update = function(update){
-        var ban_changes = filterChanges(update["Changes"], undefined, ObjectTypes.DRAFT, "banned_heroes");
-        var pick_changes = filterChanges(update["Changes"], undefined, ObjectTypes.DRAFT, "selected_heroes");
+        var ban_changes = self.game.filterChanges(update["Changes"], undefined, ObjectTypes.DRAFT, "banned_heroes");
+        var pick_changes = self.game.filterChanges(update["Changes"], undefined, ObjectTypes.DRAFT, "selected_heroes");
         if(ban_changes.length > 0 || pick_changes.length > 0)
             self.refresh();
     };
 
     this.refresh = function(){
-        var state = game.state;
+        var state = self.game.state;
         var draft = state.get(0, "draft");
         var banned = state.get(draft, "banned_heroes");
         var picked = state.get(draft, "selected_heroes");
@@ -398,6 +407,7 @@ function DraftDisplay(node){
     };
 }
 
+var event_refresh_rate = 2000; //in milliseconds
 var event_window = 60*TICKS_PER_SEC;
 
 function EventDisplay(node){
@@ -407,18 +417,22 @@ function EventDisplay(node){
     this.events_div = null;
 
     this.init = function(game) {
+        console.log("init event display");
         self.game = game;
         var state = self.game.state;
         var event_display = "<h3>Events</h3><div id=\"events\">events</div>";
         self.node.html(event_display);
         self.events_div = $("#events");
+        self.refresh();
+        setInterval(self.refresh, event_refresh_rate);
     };
 
-    this.update = function(update){};
+    this.update = function(update){
+    };
 
     this.refresh = function(){
         self.events_div.html("");
-        var events = self.game.events
+        var events = self.game.events;
         for (var i = events.length -1; i >= 0; --i){
             var event = events[i];
             if(event["Time"] < self.game.state.time - event_window)
@@ -426,19 +440,19 @@ function EventDisplay(node){
             var p = document.createElement("p");
             if(event["Type"] == EventType.STATECHANGE)
             {
-                p.innerHTML = formattedTime(event["Time"]) +" :<br/> Changed State to "+event["State"];
+                p.innerHTML = formattedTime(event["Time"], self.game.state) +" :<br/> Changed State to "+event["State"];
             }
             else if(event["Type"] == EventType.TEXTEVENT)
             {
-                p.innerHTML = formattedTime(event["Time"]) +" :<br/> "+event["Text"];
+                p.innerHTML = formattedTime(event["Time"], self.game.state) +" :<br/> "+event["Text"];
             }
             else if(event["Type"] == EventType.DRAFTEVENT)
             {
-                p.innerHTML = formattedTime(event["Time"]) +" :<br/>The "+event["Team"]+ " " + event["Action"]+" "+ event["Hero"]+ " after "+Math.floor(event["TimeUsed"]/TICKS_PER_SEC)+" sec.";
+                p.innerHTML = formattedTime(event["Time"], self.game.state) +" :<br/>The "+event["Team"]+ " " + event["Action"]+" "+ event["Hero"]+ " after "+Math.floor(event["TimeUsed"]/TICKS_PER_SEC)+" sec.";
             }
             else
             {
-                p.innerHTML = "Event at "+formattedTime(event["Time"])+" :<br/> "+event["Type"];
+                p.innerHTML = "Event at "+formattedTime(event["Time"], self.game.state)+" :<br/> "+event["Type"];
             }
             self.events_div.append(p);
         }
@@ -454,50 +468,60 @@ function EventDisplay(node){
     Helpers for displaying
  */
 
-function formattedTime(state){
-    var parsedTime = parseInt(state.time);
+function formattedTime(time, state){
+    var parsedTime = parseInt(time);
     if(!state.exists(0)){
         console.log("no info");
         return "";
     }
-    return formatTimeState(parsedTime, state.get(0,"state"));
+    return formatTimeState(parsedTime, state, state.get(0,"state"));
 }
 
-function formatTimeState(time, state){
+function formatTimeState(time, state, game_state){
     var TICKS_PER_SECOND = 30.0;
     var offset = 0;
-    if(state == "draft"){
-        offset = game.state.get(0,"draft_start_time");
-        if(time - offset < 0)
-            return formatTimeState(time, "loading");
-    }
-    else if(state == "pregame"){
-        offset = game.state.get(0,"pregame_start_time");
-        if(time - offset < 0)
-            return formatTimeState(time, "draft");
-    }
-    else if( state == "game"){
-        offset = game.state.get(0,"game_start_time");
-        if(time - offset < 0)
-            return formatTimeState(time, "pregame");
-    }
-    else if( state == "postgame"){
-        offset = game.state.get(0,"game_end_time");
-        if(time - offset < 0)
-            return formatTimeState(time, "game");
+    switch(game_state){
+        case "draft":
+            offset = state.get(0,"draft_start_time");
+            if(time - offset < 0)
+                return formatTimeState(time, state, "loading");
+            break;
+        case "pregame":
+            offset = state.get(0,"pregame_start_time");
+            if(time - offset < 0)
+                return formatTimeState(time, state, "draft");
+            break;
+        case "game":
+            offset = state.get(0,"game_start_time");
+            if(time - offset < 0)
+                return formatTimeState(time, state, "pregame");
+            break;
+        case "postgame":
+            offset = state.get(0,"game_end_time");
+            if(time - offset < 0)
+                 return formatTimeState(time, state, "game");
+            break;
+        default:
+            break;
     }
     var seconds = (time - offset) / TICKS_PER_SECOND;
     var result = "";
 
     var formattedState = "";
-    if(state == "loading")
-        formattedState = "Loading";
-    else if(state == "pregame")
-        formattedState = "Pregame";
-    else if(state == "game")
-        formattedState = "Game";
-    else if(state == "postgame")
-        formattedState = "Postgame";
-    result += state + " "+zeroPad(Math.floor(seconds/60),2) + ":" + zeroPad(Math.floor(seconds%60),2);
+    switch(game_state){
+        case "loading":
+            formattedState = "Loading";
+            break;
+        case "pregame":
+            formattedState = "Pregame";
+            break;
+        case "game":
+            formattedState = "Game";
+            break;
+        case "postgame":
+            formattedState = "Postgame";
+            break;
+    }
+    result += formattedState + " "+zeroPad(Math.floor(seconds/60),2) + ":" + zeroPad(Math.floor(seconds%60),2);
     return result;
 }

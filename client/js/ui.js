@@ -34,6 +34,7 @@ function checkCommand(argv){
         case Commands.CONFIGURE:
             if(argv.length != 3)
                 return false;
+            break;
         case Commands.CLOSE:
             if(argv.length != 1)
                 return false;
@@ -46,9 +47,11 @@ function checkCommand(argv){
 
 var connection_connection;
 var game_connection;
-var main_viewer = new GameDisplay($("#main_display"));
+var main_viewer;
 
 function createGame(game_id, host, port){
+    console.log("creating game", game_id, host, port);
+    main_viewer = new GameDisplay($("#main_display"));
     game_connection = new GameConnection(game_id, host, port, main_viewer);
 }
 
@@ -57,6 +60,7 @@ function executeCommand(argv){
         console.log("Invalid command", argv);
         return;
     }
+    console.log("command", argv);
     switch(argv[0]){
         case Commands.CONNECT:
             var game_id = parseInt(argv[1]);
