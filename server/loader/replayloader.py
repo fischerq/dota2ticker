@@ -32,6 +32,7 @@ class ReplayLoader:
         self.game.initialise()
         file_replay = "server/data/replays/{}.dem".format(self.game_id)
         self.replay = tarrasque.StreamBinding.from_file(file_replay, start_tick="start")
+        print "strtables {}".format(self.replay.string_tables.keys())
         self.tick = 0
         GameLoader(self, self.game_id) #spawn loader for game
         StateEvaluator(self)

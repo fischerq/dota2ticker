@@ -151,10 +151,12 @@ function MinimapDisplay(node, data_display){
     this.minimap = null;
     this.layers = [];
     this.imagesDir = new ImageDirectory();
+    this.icons = {};
 
     this.data_display = data_display;
 
     var icon_size = 20;
+    var building_icon_size = 3/4*icon_size;
 
     //Constants and helpers
     var WORLD_MAX_WIDTH  = 9216.0;
@@ -163,10 +165,10 @@ function MinimapDisplay(node, data_display){
     var WORLD_MIN_HEIGHT = -7680.0;
 
     var parameters_minimap = {};
-    parameters_minimap["scale_x"] = 0.0185;
-    parameters_minimap["scale_y"] = 0.0180;
-    parameters_minimap["offset_x"] = 0;
-    parameters_minimap["offset_y"] = 0;
+    parameters_minimap["scale_x"] = 0.0186;
+    parameters_minimap["scale_y"] = 0.0182;
+    parameters_minimap["offset_x"] = -7;
+    parameters_minimap["offset_y"] = -2;
 
 
     function decodePosition(position){
@@ -198,10 +200,11 @@ function MinimapDisplay(node, data_display){
         self.layers["heroes"] = new Kinetic.Layer();
         self.minimap.add(self.layers["heroes"]);
         var loader = new PxLoader();
-        self.imagesDir.loadImage(loader, "data/minimap.png", "minimap", function(){
-            self.layers["background"].add(self.imagesDir.get("minimap"));
-            console.log("added minimap");
-        });
+        self.imagesDir.loadImage(loader, "data/minimap/minimap.png", "minimap");
+        var building_files = ["ancient_dire", "ancient_radiant", "racks45_radiant", "racks45_dire", "racks90_radiant", "racks90_dire", "tower45_radiant", "tower45_dire", "tower90_radiant", "tower90_dire"];
+        for(var file in building_files) {
+            self.imagesDir.loadImage(loader, "data/minimap/minimap_"+building_files[file]+".png", building_files[file]);
+        }
         var players = state.get(0, "players");
         for(var player in players) {
             var hero_id = state.get(players[player], "hero");
@@ -210,8 +213,26 @@ function MinimapDisplay(node, data_display){
                 self.loadHeroData(state.get(hero_id, "name"), hero_id, loader);
             }
         }
-        loader.addCompletionListener(self.refresh);
+        loader.addCompletionListener(self.initLoaded);
         loader.start();
+    };
+
+    this.initLoaded = function(){
+        var minimap_bg = new Kinetic.Image({
+            image: self.imagesDir.get("minimap"),
+            width: 300,
+            height: 300
+        });
+        self.layers["background"].add(minimap_bg);
+        console.log("added minimap");
+
+        var buildings = self.game.state.get(0, "buildings");
+        console.log("init setting buildidngs: ", buildings.length);
+        for(var building in buildings) {
+            var building_id = buildings[building];
+            addBuilding(building_id);
+        }
+        self.refresh();
     };
 
     function getSetSelected(id){
@@ -222,40 +243,102 @@ function MinimapDisplay(node, data_display){
         }
     }
 
-    function getAddHeroImage(id, name) {
-        console.log("creating adder for ", id, name);
+    function getAddHeroImage(id, icon) {
+        console.log("creating adder for ", id, icon);
         return function(e){
-                console.log("add hero image", name, self.imagesDir);
-                self.imagesDir.get(name).setSize(icon_size, icon_size);
+                console.log("add hero image", icon, self.imagesDir);
+                var hero_icon = new Kinetic.Image({
+                    image: self.imagesDir.get(icon),
+                    width: icon_size,
+                    height: icon_size
+                });
                 /*imagesDir[name].createImageHitRegion(function() {
                     var canvas = new Kinetic.Canvas(this.width, this.height);
                     var context = canvas.getContext();
                     context.drawImage(this.attrs.image, 0, 0);
                 });*/
-                self.imagesDir.get(name).on("click", getSetSelected(id));
-                self.layers["heroes"].add(self.imagesDir.get(name));
+                hero_icon.on("click", getSetSelected(id));
+                self.layers["heroes"].add(hero_icon);
+                self.icons[id]=hero_icon;
             };
+    }
+
+    function addBuilding(id){
+        var building_icon = null;
+        switch(self.game.state.get(id, "type")){
+            case ObjectTypes.TOWER:
+                if(self.game.state.get(id, "lane") == "mid")
+                    building_icon = "tower45";
+                else
+                    building_icon = "tower90";
+                break;
+            case ObjectTypes.BARRACKS:
+                if(self.game.state.get(id, "lane") == "mid")
+                    building_icon = "racks45";
+                else
+                    building_icon = "racks90";
+                break;
+            case ObjectTypes.ANCIENT:
+                building_icon = "ancient";
+                break;
+        }
+        building_icon +="_"+ self.game.state.get(id, "team");
+        console.log("adding building", id, building_icon);
+        var building_position = convertCoordinates(decodePosition(self.game.state.get(id, "position")), parameters_minimap);
+        var building_img = new Kinetic.Image({
+            image: self.imagesDir.get(building_icon),
+            x: building_position.x-building_icon_size/2,
+            y: building_position.y-building_icon_size/2,
+            width: building_icon_size,
+            height: building_icon_size
+        });
+        self.layers["buildings"].add(building_img);
+        self.icons[id] = building_img;
     }
 
     this.loadHeroData = function(name, id, loader) {
         var icon = name+"_icon";
-        self.imagesDir.loadImage(loader, "data/icons/"+name+"_icon.png", icon, getAddHeroImage(id, icon));
+        self.imagesDir.loadImage(loader, "data/icons/"+icon+".png", icon, getAddHeroImage(id, icon));
     };
 
     this.update = function(update){
         //console.log("update");
+        var refresh_needed = false;
+        var loader = new PxLoader();
         var hero_name_changes = self.game.filterChanges(update["Changes"], undefined, ObjectTypes.HERO, "name");
         if(hero_name_changes.length > 0) {
             var heroesLoader = new PxLoader();
             for( var i in hero_name_changes){
                 if(hero_name_changes[i]["Value"] != null){
-                    self.loadHeroData(hero_name_changes[i]["Value"], hero_name_changes[i]["ID"], heroesLoader);
+                    self.loadHeroData(hero_name_changes[i]["Value"], hero_name_changes[i]["ID"], loader);
                 }
             }
-            heroesLoader.addCompletionListener(self.refresh);
-            heroesLoader.start();
+            loader.addCompletionListener(self.refresh);
+            loader.start();
         }
         else
+            refresh_needed = true;
+
+        var building_creates = self.game.filterChanges(update["Changes"], undefined, ObjectTypes.TOWER, undefined, ChangeTypes.CREATE);
+        building_creates = building_creates.concat(self.game.filterChanges(update["Changes"], undefined, ObjectTypes.BARRACKS, undefined, ChangeTypes.CREATE));
+        building_creates = building_creates.concat(self.game.filterChanges(update["Changes"], undefined, ObjectTypes.ANCIENT, undefined, ChangeTypes.CREATE));
+        if(building_creates.length > 0)
+            refresh_needed = true;
+        for( var i in building_creates){
+            addBuilding(building_creates[i]["ID"]);
+        }
+
+        var building_deletes = self.game.filterChanges(update["Changes"], undefined, ObjectTypes.TOWER, undefined, ChangeTypes.DELETE);
+        building_deletes = building_deletes.concat(self.game.filterChanges(update["Changes"], undefined, ObjectTypes.BARRACKS, undefined, ChangeTypes.DELETE));
+        building_deletes = building_deletes.concat(self.game.filterChanges(update["Changes"], undefined, ObjectTypes.ANCIENT, undefined, ChangeTypes.DELETE));
+        if(building_deletes.length > 0)
+            refresh_needed = true;
+        for( var i in building_deletes){
+            self.icons[building_deletes[i]["ID"]].remove();
+            delete self.icons[building_deletes[i]["ID"]];
+        }
+
+        if(refresh_needed)
             self.refresh();
     };
 
@@ -267,17 +350,18 @@ function MinimapDisplay(node, data_display){
             var hero_id = state.get(players[player], "hero");
             if(hero_id != null)
             {
-                var icon = state.get(hero_id, "name")+"_icon";
                 if(!state.get(hero_id, "is_alive"))
-                    self.imagesDir.get(icon).hide();
+                    self.icons[hero_id].hide();
                 else{
                     //console.log("icon",icon);
-                    self.imagesDir.get(icon).show();
+                    if(! (hero_id in self.icons))
+                        console.log("bad hero id", hero_id, state.get(hero_id, "name"));
+                    self.icons[hero_id].show();
                 }
                 //console.log("Trying to draw ", game.state.get(hero_id, "name"));
                 //console.log(game.state.get(hero_id, "name"), game.state.get(hero_id, "position").x, game.state.get(hero_id, "position").y, convertCoordinates(decodePosition(game.state.get(hero_id, "position")), parameters_minimap));
                 var icon_position = convertCoordinates(decodePosition(self.game.state.get(hero_id, "position")), parameters_minimap);
-                self.imagesDir.get(icon).setPosition(icon_position.x - (icon_size/2), icon_position.y - (icon_size/2));
+                self.icons[hero_id].setPosition(icon_position.x - (icon_size/2), icon_position.y - (icon_size/2));
             }
         }
         self.minimap.draw();

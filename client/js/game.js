@@ -50,7 +50,10 @@ var ObjectTypes = {
     DRAFT : "DRAFT",
     PLAYER : "PLAYER",
     HERO : "HERO",
-    ILLUSION : "ILLUSION"
+    ILLUSION : "ILLUSION",
+    TOWER: "TOWER",
+    BARRACKS: "BARRACKS",
+    ANCIENT: "ANCIENT"
 };
 
 var ChangeTypes = {

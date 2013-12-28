@@ -28,10 +28,14 @@ class LoaderProxy:
         return data
 
     def listen_to_data(self):
+        print "loaderproxy says hi, {}".format(self.port)
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.connect(("localhost", self.port))
+        print "loaderproxy connected"
         s.sendall("LISTEN {}".format(self.game_id))
+        print "loaderproxy sent"
         data = s.recv(1024)
+        print "loaderproxy got {}".format(data)
         message = LoaderProtocol.parse_message(data)
         if LoaderProtocol.check(message) and message["Type"] is LoaderProtocol.MessageTypes.ACCEPTED:
             running = True

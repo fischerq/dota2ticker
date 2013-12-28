@@ -4,7 +4,7 @@ import simplejson as json
 
 class GameDumper:
     def __init__(self, id):
-        self.file = open("data/dumps/{}.json".format(id), "w+")
+        self.file = open("server/data/dumps/{}.json".format(id), "w+")
 
     def register_event(self, event):
         message = GameProtocol.EventMessage(event)

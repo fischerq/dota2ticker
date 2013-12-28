@@ -62,7 +62,10 @@ class ConnectionServer:
             if game_server["game_id"] == game_id:
                 return ConnectProtocol.AvailabilityStates.AVAILABLE, game_server
         if server is None:
-            self.create_game_server(game_id)
+            if game_id in self.requested_games:
+                print "server to be created is already requested"
+            else:
+                self.create_game_server(game_id)
             return ConnectProtocol.AvailabilityStates.PENDING, None
 
     def handle_registration(self, socket, address):
@@ -75,6 +78,7 @@ class ConnectionServer:
             server["game_id"] = int(data[3])
             print "registered game server for game {} at ({},{})".format(server["game_id"], server["host"], server["port"])
             self.game_servers.append(server)
+            self.requested_games[:] = [request for request in self.requested_games if request != server["game_id"]]
             socket.sendall("ACCEPTED")
         elif data[0] == "LOADER" and len(data) is 3:
             loader = dict()
@@ -84,8 +88,7 @@ class ConnectionServer:
             self.loaders.append(loader)
             socket.sendall("ACCEPTED")
             if loader["game_id"] in self.requested_games:
-                self.requested_games[:] = [request for request in self.requested_games if request != loader["game_id"]]
-                self.create_game_server(loader["game_id"])
+                 self.create_game_server(loader["game_id"])
         else:
             socket.sendall("ERROR")
             print "Bad registration: {} parsed: {}".format(message, data)
@@ -93,9 +96,6 @@ class ConnectionServer:
         socket.close()
 
     def create_game_server(self, game_id):
-        if game_id in self.requested_games:
-            print "server to be created is already requested"
-            return
         print "Trying to create server for game {}".format(game_id)
         loader_port = -1
         for loader in self.loaders:

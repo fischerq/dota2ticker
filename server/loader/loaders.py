@@ -41,13 +41,17 @@ ObjectTypes = enum("GAME",
                    "DRAFT",
                    "PLAYER",
                    "HERO",
-                   "ILLUSION")
+                   "ILLUSION",
+                   "TOWER",
+                   "BARRACKS",
+                   "ANCIENT")
 
 
 class GameLoader(ObjectLoader):
     def __init__(self, loader, game_id):
         super(GameLoader, self).__init__(loader)
         self.replay = loader.replay
+        self.buildings = []
         self.set_attribute("type", ObjectTypes.GAME)
         self.set_attribute("game_id", game_id)
         self.set_attribute("game_mode", self.replay.info.game_mode)
@@ -56,30 +60,47 @@ class GameLoader(ObjectLoader):
 
     def check_game(self):
         if self.replay.info.game_state is not self.state.get(self.id, "state"):
-            if self.replay.info.game_state is "loading":
+            if self.replay.info.game_state == "loading":
                 pass
-            elif self.replay.info.game_state is "draft":
+            elif self.replay.info.game_state == "draft":
                 print "draft {}".format(self.replay.tick)
                 self.set_attribute("draft_start_time", self.replay.tick)
                 draft_loader = DraftLoader(self.loader, self.replay.info)
                 self.set_attribute("draft", draft_loader.id)
-            elif self.replay.info.game_state is "pregame":
+            elif self.replay.info.game_state == "pregame":
                 print "pregame {}".format(self.replay.tick)
                 self.set_attribute("pregame_start_time", self.replay.tick)
-                #start game loading
+                #load players
                 players = []
                 for player in self.replay.players:
                     if player.index is not None:
                         player_loader = PlayerLoader(self.loader, player)
                         players.append(player_loader.id)
                 self.set_attribute("players", players)
-            elif self.replay.info.game_state is "game":
+                #load buildings
+                buildings = []
+                for tower in self.replay.buildings.towers:
+                    tower_loader = TowerLoader(self.loader, tower)
+                    buildings.append(tower_loader.id)
+                for barracks in self.replay.buildings.barracks:
+                    barracks_loader = BuildingLoader(self.loader, ObjectTypes.BARRACKS, barracks)
+                    buildings.append(barracks_loader.id)
+                for ancient in self.replay.buildings.ancients:
+                    ancient_loader = BuildingLoader(self.loader, ObjectTypes.ANCIENT, ancient)
+                    buildings.append(ancient_loader.id)
+                self.set_attribute("buildings", buildings)
+                #setup creep loading
+            elif self.replay.info.game_state == "game":
                 print "game {}".format(self.replay.tick)
                 self.set_attribute("game_start_time", self.replay.tick)
-            elif self.replay.info.game_state is "postgame":
+            elif self.replay.info.game_state == "postgame":
                 self.set_attribute("game_end_time", self.replay.tick)
             else:
                 print "strange state {}".format(self.replay.info.game_state)
+        if self.replay.info.game_state == "pregame" or \
+            self.replay.info.game_state == "game" or \
+            self.replay.info.game_state == "postgame":
+            pass # load creeps
         self.check_attribute("state", self.replay.info.game_state)
         self.check_attribute("pausing_team", self.replay.info.pausing_team)
 
@@ -115,6 +136,9 @@ class EntityLoader(ObjectLoader):
         if not self.entity.exists:
             print "Removing {} {}".format(self.id, self.__class__)
             self.remove()
+        else:
+            self.check_attribute("team", self.entity.team)
+            self.check_attribute("name", self.entity.name)
 
 
 def encode_position(position):
@@ -140,6 +164,10 @@ class BaseNPCLoader(EntityLoader):
         self.check_attribute("mana", self.npc.mana)
         self.check_attribute("mana_regen", self.npc.mana_regen)
         self.check_attribute("max_mana", self.npc.max_mana)
+        self.check_attribute("unit_name", self.npc.unit_name)
+        #for table_key in self.loader.replay.string_tables.keys():
+        #    if self.npc.unit_name in self.loader.replay.string_tables[table_key].by_index.keys():
+        #        print "{} {} {} ".format(table_key, self.npc.unit_name, self.loader.replay.string_tables[table_key].by_index[self.npc.unit_name])
 
 
 class HeroLoader(BaseNPCLoader):
@@ -222,3 +250,31 @@ class PlayerLoader(EntityLoader):
         self.check_attribute("has_buyback", self.player.has_buyback)
         self.check_attribute("buyback_cooldown_time", self.player.buyback_cooldown_time)
         self.check_attribute("last_buyback_time", self.player.last_buyback_time)
+
+
+class BuildingLoader(BaseNPCLoader):
+    def __init__(self, loader, building_type, building):
+        super(BuildingLoader, self).__init__(loader, building)
+        self.set_attribute("type", building_type)
+        self.building = building
+
+class TowerLoader(BuildingLoader):
+    def __init__(self, loader, tower):
+        super(TowerLoader, self).__init__(loader, ObjectTypes.TOWER, tower)
+        self.checks.append(self.check_tower)
+        self.tower = tower
+
+    def check_tower(self):
+        self.check_attribute("lane", self.tower.lane)
+        self.check_attribute("tier", self.tower.tier)
+
+
+class BarracksLoader(BuildingLoader):
+    def __init__(self, loader, barracks):
+        super(TowerLoader, self).__init__(loader, ObjectTypes.TOWER, barracks)
+        self.checks.append(self.check_barracks)
+        self.tower = barracks
+
+    def check_barracks(self):
+        self.check_attribute("lane", self.tower.lane)
+        self.check_attribute("rax_type", self.tower.type)

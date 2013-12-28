@@ -62,9 +62,7 @@ function ImageDirectory(){
     this.images = {};
 
     this.registerImage = function(name, img){
-        self.images[name] = new Kinetic.Image({
-            image: img
-            });
+        self.images[name] = img
         console.log("registered ",name, self.images[name]);
     };
 

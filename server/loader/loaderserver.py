@@ -2,7 +2,7 @@ import server.protocols.loader as ServerProtocol
 import simplejson as json
 from threading import Thread
 import socket
-
+import server.config as config
 
 class LoaderServer:
     def __init__(self, game_id, port):
@@ -13,12 +13,15 @@ class LoaderServer:
         self.running = True
 
     def accept_listeners(self):
+        print "loader server says hi, {} {}".format(self.port, config.host)
         server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        server.bind(("localhost", self.port))
+        server.bind((config.host, self.port))
         server.listen(5)
         while self.running:
             conn, addr = server.accept()
+            print "loader server accepted {}".format(conn)
             data = conn.recv(1024)
+            print "loader server got {}".format(data)
             message = ServerProtocol.parse_message(data)
             if ServerProtocol.check(message) \
                 and message["Type"] is ServerProtocol.MessageTypes.LISTEN \
@@ -27,7 +30,7 @@ class LoaderServer:
                 conn.sendall(ServerProtocol.AcceptedMessage())
                 self.listeners.append(conn)
             else:
-                print message
+                print "rejecting message {}".format(message)
                 conn.sendall(ServerProtocol.RejectedMessage())
                 conn.close()
         for listener in self.listeners:
