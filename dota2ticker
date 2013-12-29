@@ -17,7 +17,9 @@ DAEMON_NAME=dota2ticker
 export PYTHONPATH=/usr/local/dota2ticker:/usr/local/skadi:/usr/local/Tarrasque
 # This next line determines what user the script runs as.
 DAEMON_USER=root
- 
+
+WEBSERVER_DEAMON=/usr/local/bin/gunicorn
+
 # directory for pid files:
 PIDPATH=/var/run
 PIDFILE=$PIDPATH/$DAEMON_NAME
@@ -26,7 +28,7 @@ PIDFILE=$PIDPATH/$DAEMON_NAME
 do_start () {
 log_daemon_msg "Starting system $DAEMON_NAME daemon"
 start-stop-daemon --start --pidfile $PIDPATH/gunicorn/webserver.pid\
-                    -c $RUN_AS -d $DIR --exec "gunicorn" -- -c gunicorn.conf --pythonpath $DIR/server/executables  webserver:app
+                    -c $RUN_AS -d $DIR --exec $WEBSERVER_DAEMON -- -c gunicorn.conf --pythonpath $DIR/server/executables  webserver:app
 start-stop-daemon --start --background --pidfile $PIDFILE\
 					--make-pidfile --user $DAEMON_USER\
 					--chuid $DAEMON_USER -d $DIR\
