@@ -26,6 +26,7 @@ def allowed_file(filename):
 # Route that will process the file upload
 @app.route('/upload', methods=['POST'])
 def upload():
+    print "got request"
     # Get the name of the uploaded file
     file = request.files['file']
     # Check if the file is one of the allowed types/extensions
