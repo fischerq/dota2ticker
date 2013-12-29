@@ -4,6 +4,7 @@ from threading import Thread
 import socket
 import server.config as config
 
+
 class LoaderServer:
     def __init__(self, game_id, port):
         self.game_id = game_id
