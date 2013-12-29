@@ -14,7 +14,8 @@
 DIR=/usr/local/dota2ticker
 DAEMON=$DIR/server/executables/connectionserver_main.py
 DAEMON_NAME=dota2ticker
-export PYTHONPATH=/usr/local/dota2ticker:/usr/local/skadi:/usr/local/Tarrasque
+export PYTHONPATH=/usr/local/dota2ticker:/usr/local/skadi:/usr/local/Tarrasque:/usr/local/dota2ticker/server/executables
+
 # This next line determines what user the script runs as.
 DAEMON_USER=root
 
@@ -24,11 +25,11 @@ WEBSERVER_DEAMON=/usr/local/bin/gunicorn
 PIDPATH=/var/run
 PIDFILE=$PIDPATH/$DAEMON_NAME
 . /lib/lsb/init-functions
- 
+
 do_start () {
 log_daemon_msg "Starting system $DAEMON_NAME daemon"
 start-stop-daemon --start --pidfile $PIDPATH/gunicorn/webserver.pid\
-                    -c $RUN_AS -d $DIR --exec $WEBSERVER_DAEMON -- -c gunicorn.conf --pythonpath $DIR/server/executables  webserver:app
+                    -c $RUN_AS -d $DIR --exec $WEBSERVER_DAEMON -- -c gunicorn.conf webserver:app
 start-stop-daemon --start --background --pidfile $PIDFILE\
 					--make-pidfile --user $DAEMON_USER\
 					--chuid $DAEMON_USER -d $DIR\
