@@ -104,9 +104,9 @@ class GameServer:
         self.subscribers["Past"] = []
         self.subscribers["Event"] = []
         self.running = True
-        self.webserver_thread = Thread(target=self.server.serve_forever).start()
-        self.past_subscribers_thread = Thread(target=self.serve_past_subscribers).start()
-        self.timeout_thread = Thread(target=self.timeout).start()
+        self.webserver_thread = Thread(target=self.server.serve_forever)
+        self.past_subscribers_thread = Thread(target=self.serve_past_subscribers)
+        self.timeout_thread = Thread(target=self.timeout)
 
     def start(self):
         self.webserver_thread.start()
