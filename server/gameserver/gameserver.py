@@ -3,9 +3,10 @@
 from gevent import monkey; monkey.patch_all()
 from ws4py.server.geventserver import WSGIServer
 from ws4py.server.wsgiutils import WebSocketWSGIApplication
-from threading import Lock
 from threading import Thread
 from server.libs.utils import DataSocket
+import socket
+
 
 from server.protocols import game as GameProtocol
 from server import protocols as Protocols
@@ -73,13 +74,19 @@ class GameSocket(DataSocket):
                 self.server.remove_subscriber(self.client)
             else:
                 print "Unknown message type {}".format(message_type)
-        self.send_data(response)
+        try:
+            self.send_data(response)
+        except socket.error as e:
+            print "Error sending response: {}".format(e)
+            self.close()
 
     def closed(self, code, reason=None):
         self.server.remove_client(self.client)
 
-PAST_SEND_INTERVAL = 5 # in ticks
+PAST_SEND_INTERVAL = 5  # in ticks
 TIME_PER_TICK = 1.0/30
+TIMEOUT_INTERVAL = 5  # in seconds
+SERVICE_TIMEOUT = 10  # in seconds
 import time
 
 
@@ -89,27 +96,30 @@ class GameServer:
         self.port = port
         self.public_address = public_address
         self.clients = []
-        self.clients_lock = Lock()
         self.game_id = game_id
         self.game = Game()
         self.server = WSGIServer((host, port), GameApplication(self))
-        Thread(target=self.server.serve_forever).start()
         self.subscribers = dict()
         self.subscribers["Current"] = []
         self.subscribers["Past"] = []
         self.subscribers["Event"] = []
-        Thread(target=self.serve_past_subscribers).start()
-        print "Started game server on {}, {}".format(host, port)
+        self.running = True
+        self.webserver_thread = Thread(target=self.server.serve_forever).start()
+        self.past_subscribers_thread = Thread(target=self.serve_past_subscribers).start()
+        self.timeout_thread = Thread(target=self.timeout).start()
+
+    def start(self):
+        self.webserver_thread.start()
+        self.past_subscribers_thread.start()
+        self.timeout_thread.start()
+        print "Started game server on {}, {}".format(self.host, self.port)
 
     def serve_past_subscribers(self):
-        while True:
-            time_change = int(PAST_SEND_INTERVAL * TIME_PER_TICK)
+        while self.running:
             for subscriber, past_state in self.subscribers["Past"]:
-                #print "Updating past subscriber"
                 if past_state.finished():
                     continue
                 updates, events = past_state.pass_time(PAST_SEND_INTERVAL*subscriber.speed)
-                #print "{},{}".format(len(updates), len(events))
                 for update in updates:
                     subscriber.send_update(update)
                 for event in events:
@@ -118,18 +128,29 @@ class GameServer:
             self.subscribers["Past"][:] = [(s, ps) for s, ps in self.subscribers["Past"] if not ps.finished()]
             time.sleep(PAST_SEND_INTERVAL * TIME_PER_TICK)
 
+    def timeout(self):
+        timeout = SERVICE_TIMEOUT
+        while self.running:
+            time.sleep(TIMEOUT_INTERVAL)
+            total_subscribers = len(self.subscribers["Current"])+len(self.subscribers["Past"])+len(self.subscribers["Event"])
+            if total_subscribers > 0:
+                timeout = SERVICE_TIMEOUT
+            else:
+                timeout -= TIMEOUT_INTERVAL
+            if timeout < 0:
+                self.running = False
+                self.server.stop()
+
     def find_client(self, client_id):
-        with self.clients_lock:
-            for client in self.clients:
-                if client.id == client_id:
-                    return client
+        for client in self.clients:
+            if client.id == client_id:
+                return client
         print "Couldn't find client"
         return None
 
     def create_client(self):
         client = Client(Protocols.generate_id())
-        with self.clients_lock:
-            self.clients.append(client)
+        self.clients.append(client)
         return client
 
     def remove_client(self, client):
@@ -153,7 +174,6 @@ class GameServer:
         self.subscribers["Past"][:] = [(s, it) for s, it in self.subscribers["Past"] if s.id != client.id]
 
     def register_update(self, update):
-        #print "adding update at {}, {} changes".format(update.time, len(update.changes))
         self.game.add_update(update)
         for client in self.subscribers["Current"]:
             client.send_update(update)
@@ -165,6 +185,7 @@ class GameServer:
 
     def finish(self):
         self.game.finish()
+
 
 class Client:
     def __init__(self, id_):
@@ -188,11 +209,19 @@ class Client:
             self.buffered_update.merge(update)
         if self.buffered_update.time >= self.last_time + self.subscribe_interval:
             message = GameProtocol.UpdateMessage(self.buffered_update)
-            self.connection.send_data(message)
+            try:
+                self.connection.send_data(message)
+            except socket.error as e:
+                print "Failed sending update to client: {}".format(e)
+                self.connection.close()
             self.last_time = self.buffered_update.time
             self.buffered_update = None
 
     def send_event(self, event):
         message = GameProtocol.EventMessage(event)
         if event.importance > self.subscribe_threshold:
+            try:
                 self.connection.send_data(message)
+            except socket.error as e:
+                print "Failed sending event to client: {}".format(e)
+                self.connection.close()

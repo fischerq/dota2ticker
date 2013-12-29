@@ -30,8 +30,6 @@ class ObjectLoader(object):
 
     def check_attribute(self, attribute, value):
         if self.state.get(self.id, attribute) != value:
-            if attribute == "name":
-                print "setting name {}:{}".format(self.id, value)
             self.loader.add_change(Change(ChangeType.SET, self.id, attribute, value))
             return True
         else:
@@ -164,7 +162,7 @@ class BaseNPCLoader(EntityLoader):
         self.check_attribute("mana", self.npc.mana)
         self.check_attribute("mana_regen", self.npc.mana_regen)
         self.check_attribute("max_mana", self.npc.max_mana)
-        self.check_attribute("unit_name", self.npc.unit_name)
+        #self.check_attribute("unit_name", self.npc.unit_name)
         #for table_key in self.loader.replay.string_tables.keys():
         #    if self.npc.unit_name in self.loader.replay.string_tables[table_key].by_index.keys():
         #        print "{} {} {} ".format(table_key, self.npc.unit_name, self.loader.replay.string_tables[table_key].by_index[self.npc.unit_name])

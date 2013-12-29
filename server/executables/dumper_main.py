@@ -13,3 +13,6 @@ dumper = GameDumper(game_id)
 
 loader = LoaderProxy(game_id, dumper, loader_port)
 loader.start()
+print "dumper finish"
+
+loader.thread.join()

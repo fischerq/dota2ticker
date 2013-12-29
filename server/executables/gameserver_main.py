@@ -18,3 +18,7 @@ loader.start()
 
 connection_server = RegistrationProxy(registration_port)
 connection_server.add_game_server(server)
+
+server.start()
+loader.thread.join()
+server.timeout_thread.join()

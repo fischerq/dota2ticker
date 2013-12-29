@@ -9,7 +9,7 @@ from server.libs.utils import DataSocket
 from server.protocols import connect as ConnectProtocol
 
 import subprocess
-
+import socket
 
 class ConnectionApplication(WebSocketWSGIApplication):
     def __init__(self, server):
@@ -34,9 +34,12 @@ class ConnectionSocket(DataSocket):
         elif message["Type"] == ConnectProtocol.MessageTypes.CONNECT:
             print "Received connect message"
             availability, game_server = self.connection_server.find_game_server(message)
-            self.send_data(ConnectProtocol.GameAvailabilityMessage(availability))
-            if availability is ConnectProtocol.AvailabilityStates.AVAILABLE:
-                self.send_data(ConnectProtocol.ClientInfoMessage(game_server["host"], game_server["port"], game_server["game_id"]))
+            try:
+                self.send_data(ConnectProtocol.GameAvailabilityMessage(availability))
+                if availability is ConnectProtocol.AvailabilityStates.AVAILABLE:
+                    self.send_data(ConnectProtocol.ClientInfoMessage(game_server["host"], game_server["port"], game_server["game_id"]))
+            except socket.error as e:
+                print "Error sending connect response: {}".format(e)
         else:
             print "Not supported message: {}".format(message["Type"])
         self.close()
@@ -68,8 +71,8 @@ class ConnectionServer:
                 self.create_game_server(game_id)
             return ConnectProtocol.AvailabilityStates.PENDING, None
 
-    def handle_registration(self, socket, address):
-        message = socket.recv(1024)
+    def handle_registration(self, socket_, address):
+        message = socket_.recv(1024)
         data = message.split(" ")
         if data[0] == "GAME_SERVER" and len(data) is 4:
             server = dict()
@@ -79,21 +82,21 @@ class ConnectionServer:
             print "registered game server for game {} at ({},{})".format(server["game_id"], server["host"], server["port"])
             self.game_servers.append(server)
             self.requested_games[:] = [request for request in self.requested_games if request != server["game_id"]]
-            socket.sendall("ACCEPTED")
+            socket_.sendall("ACCEPTED")
         elif data[0] == "LOADER" and len(data) is 3:
             loader = dict()
             loader["game_id"] = int(data[1])
             loader["port"] = int(data[2])
             print "registered loader for game {} at port {}".format(loader["game_id"], loader["port"])
             self.loaders.append(loader)
-            socket.sendall("ACCEPTED")
+            socket_.sendall("ACCEPTED")
             if loader["game_id"] in self.requested_games:
                  self.create_game_server(loader["game_id"])
         else:
-            socket.sendall("ERROR")
+            socket_.sendall("ERROR")
             print "Bad registration: {} parsed: {}".format(message, data)
             print "{}, {}, {}".format(data[0] == "GAME_SERVER", data[0] == "LOADER", len(data))
-        socket.close()
+        socket_.close()
 
     def create_game_server(self, game_id):
         print "Trying to create server for game {}".format(game_id)

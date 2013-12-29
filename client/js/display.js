@@ -292,6 +292,7 @@ function MinimapDisplay(node, data_display){
             width: building_icon_size,
             height: building_icon_size
         });
+        building_img.on("click", getSetSelected(id));
         self.layers["buildings"].add(building_img);
         self.icons[id] = building_img;
     }
@@ -334,6 +335,7 @@ function MinimapDisplay(node, data_display){
         if(building_deletes.length > 0)
             refresh_needed = true;
         for( var i in building_deletes){
+            console.log("removed building");
             self.icons[building_deletes[i]["ID"]].remove();
             delete self.icons[building_deletes[i]["ID"]];
         }
@@ -363,6 +365,13 @@ function MinimapDisplay(node, data_display){
                 var icon_position = convertCoordinates(decodePosition(self.game.state.get(hero_id, "position")), parameters_minimap);
                 self.icons[hero_id].setPosition(icon_position.x - (icon_size/2), icon_position.y - (icon_size/2));
             }
+        }
+
+        var buildings = state.get(0,"buildings");
+        for(var i in buildings){
+            var building_id  = buildings[i];
+            if(!state.get(building_id, "is_alive"))
+                    self.icons[building_id].hide();
         }
         self.minimap.draw();
     }

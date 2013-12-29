@@ -26,8 +26,10 @@ PIDFILE=/var/run/$DAEMON_NAME.pid
  
 do_start () {
 log_daemon_msg "Starting system $DAEMON_NAME daemon"
+cd $DIR
+gunicorn -c --pythonpath $dir/server/executables server/gunicorn.conf webserver:app
 start-stop-daemon --start --background --pidfile $PIDFILE\
-					--make-pidfile --user $DAEMON_USER --chdir $DIR\
+					--make-pidfile --user $DAEMON_USER\
 					--exec /bin/bash -- -c "python $DAEMON > $DIR/$DAEMON_NAME.log 2>&1"
 log_end_msg $?
 }

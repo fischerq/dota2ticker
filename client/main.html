@@ -17,6 +17,7 @@
     <![endif]-->
 
     <script src="js/lib/jquery-2.0.3.min.js"></script>
+    <script src="js/lib/jquery.form.min.js"></script>
     <script src="js/lib/bootstrap.min.js"></script>
 
 
@@ -79,7 +80,7 @@
 </div><!-- /.modal -->
 
 <!-- cmd Modal -->
-<div class="modal fade" id="cmd" tabindex="-1" role="dialog" aria-labelledby="cmdLabel" aria-hidden="true">
+<div class="modal fade" id="cmdModal" tabindex="-1" role="dialog" aria-labelledby="cmdLabel" aria-hidden="true">
   <div class="modal-dialog">
     <div class="modal-content">
       <div class="modal-header">
@@ -87,9 +88,16 @@
         <h4 class="modal-title" id="cmdtLabel">Command</h4>
       </div>
       <div class="modal-body">
-          <form id="form">
-                <input type="text" id="message">
-                <button type="submit" id="thesubmit" >Execute</button>
+          <form id="cmd_form">
+                <input type="text" id="cmd">
+                <button type="submit" id="exec" >Execute</button>
+          </form>
+          <form action="upload" method="post"
+            enctype="multipart/form-data" id="replay_form">
+              <label for="file">Filename:</label>
+              <input type="file" name="file" id="file"><br>
+              <input type="submit" name="upload_replay" value="Upload">
+              <div id="replay_progress"></div>
           </form>
       </div>
       <div class="modal-footer">
