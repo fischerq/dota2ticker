@@ -26,7 +26,7 @@ PIDFILE=$PIDPATH/$DAEMON_NAME
 do_start () {
 log_daemon_msg "Starting system $DAEMON_NAME daemon"
 start-stop-daemon --start --pidfile $PIDPATH/gunicorn/webserver.pid\
-                    -c $RUN_AS -d $DIR --exec gunicorn -- -c server/gunicorn.conf --pythonpath $dir/server/executables  webserver:app
+                    -c $RUN_AS -d $DIR --exec gunicorn -- -c gunicorn.conf --pythonpath $dir/server/executables  webserver:app
 start-stop-daemon --start --background --pidfile $PIDFILE\
 					--make-pidfile --user $DAEMON_USER\
 					--chuid $DAEMON_USER -d $DIR\
