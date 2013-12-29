@@ -41,7 +41,7 @@ run
     python setup.py install
 
 	
-cp dota2ticker /ect/init.d
+cp dota2ticker /etc/init.d
 
 start daemon with /etc/init.d/dota2ticker start
 
