@@ -67,6 +67,7 @@ function ImageDirectory(){
     };
 
     this.loadImage = function(loader, file, name, callback) {
+        if(callback === undefined) callback = function(){};
         if(name in self.images) {
             console.log("prevented reloading", name, file);
             return;
