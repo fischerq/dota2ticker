@@ -45,6 +45,7 @@ cp dota2ticker /etc/init.d
 
 start daemon with /etc/init.d/dota2ticker start
 
-
+add permissions for daemon:
+    chown -R dota2ticker dota2ticker
 install flask:
 	easy_install flask

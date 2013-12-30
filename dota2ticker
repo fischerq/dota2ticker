@@ -30,8 +30,6 @@ do_start () {
 log_daemon_msg "Starting system $DAEMON_NAME daemon"
 start-stop-daemon --start --background --pidfile $PIDPATH/webserver.pid\
                     --make-pidfile -c $DAEMON_USER -d $DIR --exec $WEBSERVER_DAEMON -- -c gunicorn.conf --pythonpath=$DIR/server/executables webserver:app
-echo "HI"
-echo "/bin/bash -- -c python $DAEMON > $DIR/$DAEMON_NAME.log 2>&1"
 start-stop-daemon --start --background --pidfile $PIDFILE\
 					--make-pidfile -c $DAEMON_USER -d $DIR\
 					--exec /bin/bash -- -c "python $DAEMON > $DIR/$DAEMON_NAME.log 2>&1"
