@@ -9,9 +9,9 @@ class LoaderServer:
     def __init__(self, game_id, port):
         self.game_id = game_id
         self.port = port
-        Thread(target=self.accept_listeners).start()
         self.listeners = []
         self.running = True
+        Thread(target=self.accept_listeners).start()
 
     def accept_listeners(self):
         server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

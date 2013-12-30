@@ -10,6 +10,7 @@ from server.protocols import connect as ConnectProtocol
 
 import subprocess
 import socket
+import os.path
 
 class ConnectionApplication(WebSocketWSGIApplication):
     def __init__(self, server):
@@ -65,11 +66,15 @@ class ConnectionServer:
             if game_server["game_id"] == game_id:
                 return ConnectProtocol.AvailabilityStates.AVAILABLE, game_server
         if server is None:
+            response = ConnectProtocol.AvailabilityStates.PENDING, None
             if game_id in self.requested_games:
                 print "server to be created is already requested"
             else:
-                self.create_game_server(game_id)
-            return ConnectProtocol.AvailabilityStates.PENDING, None
+                if os.path.isfile("server/data/replays/{}.dem".format(game_id)):
+                    self.create_game_server(game_id)
+                else:
+                    response = ConnectProtocol.AvailabilityStates.UNAVAILABLE, None
+            return response
 
     def handle_registration(self, socket_, address):
         message = socket_.recv(1024)
