@@ -76,17 +76,17 @@ class GameLoader(ObjectLoader):
                         players.append(player_loader.id)
                 self.set_attribute("players", players)
                 #load buildings
-                buildings = []
+                self.buildings = []
                 for tower in self.replay.buildings.towers:
-                    tower_loader = TowerLoader(self.loader, tower)
-                    buildings.append(tower_loader.id)
+                    tower_loader = TowerLoader(self.loader, tower, self)
+                    self.buildings.append(tower_loader.id)
                 for barracks in self.replay.buildings.barracks:
-                    barracks_loader = BuildingLoader(self.loader, ObjectTypes.BARRACKS, barracks)
-                    buildings.append(barracks_loader.id)
+                    barracks_loader = BarracksLoader(self.loader, barracks, self)
+                    self.buildings.append(barracks_loader.id)
                 for ancient in self.replay.buildings.ancients:
-                    ancient_loader = BuildingLoader(self.loader, ObjectTypes.ANCIENT, ancient)
-                    buildings.append(ancient_loader.id)
-                self.set_attribute("buildings", buildings)
+                    ancient_loader = BuildingLoader(self.loader, ObjectTypes.ANCIENT, ancient, self)
+                    self.buildings.append(ancient_loader.id)
+                self.set_attribute("buildings", self.buildings)
                 #setup creep loading
             elif self.replay.info.game_state == "game":
                 print "game {}".format(self.replay.tick)
@@ -96,11 +96,17 @@ class GameLoader(ObjectLoader):
             else:
                 print "strange state {}".format(self.replay.info.game_state)
         if self.replay.info.game_state == "pregame" or \
-            self.replay.info.game_state == "game" or \
-            self.replay.info.game_state == "postgame":
-            pass # load creeps
+           self.replay.info.game_state == "game" or \
+           self.replay.info.game_state == "postgame":
+            pass
+            # load creeps
         self.check_attribute("state", self.replay.info.game_state)
         self.check_attribute("pausing_team", self.replay.info.pausing_team)
+        self.check_attribute("buildings", self.buildings)
+
+    def remove_building(self, building_id):
+        if id in self.buildings:
+            self.buildings.remove(building_id)
 
 
 class DraftLoader(ObjectLoader):
@@ -251,14 +257,21 @@ class PlayerLoader(EntityLoader):
 
 
 class BuildingLoader(BaseNPCLoader):
-    def __init__(self, loader, building_type, building):
+    def __init__(self, loader, building_type, building, game_loader):
         super(BuildingLoader, self).__init__(loader, building)
         self.set_attribute("type", building_type)
         self.building = building
+        self.checks.append(self.check_building)
+        self.game_loader = game_loader
+
+    def check_building(self):
+        if not self.building.is_alive:
+            self.game_loader.remove_building(self.id)
+            self.remove()
 
 class TowerLoader(BuildingLoader):
-    def __init__(self, loader, tower):
-        super(TowerLoader, self).__init__(loader, ObjectTypes.TOWER, tower)
+    def __init__(self, loader, tower, game_loader):
+        super(TowerLoader, self).__init__(loader, ObjectTypes.TOWER, tower, game_loader)
         self.checks.append(self.check_tower)
         self.tower = tower
 
@@ -268,8 +281,8 @@ class TowerLoader(BuildingLoader):
 
 
 class BarracksLoader(BuildingLoader):
-    def __init__(self, loader, barracks):
-        super(TowerLoader, self).__init__(loader, ObjectTypes.TOWER, barracks)
+    def __init__(self, loader, barracks, game_loader):
+        super(BarracksLoader, self).__init__(loader, ObjectTypes.BARRACKS, barracks, game_loader)
         self.checks.append(self.check_barracks)
         self.tower = barracks
 

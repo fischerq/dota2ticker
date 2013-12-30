@@ -138,6 +138,7 @@ class GameServer:
             else:
                 timeout -= TIMEOUT_INTERVAL
             if timeout < 0:
+                print "Timeout: shutting down gameserver"
                 self.running = False
                 self.server.stop()
 

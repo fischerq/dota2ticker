@@ -283,7 +283,6 @@ function MinimapDisplay(node, data_display){
                 break;
         }
         building_icon +="_"+ self.game.state.get(id, "team");
-        console.log("adding building", id, building_icon);
         var building_position = convertCoordinates(decodePosition(self.game.state.get(id, "position")), parameters_minimap);
         var building_img = new Kinetic.Image({
             image: self.imagesDir.get(building_icon),
@@ -412,8 +411,24 @@ function DataDisplay(node){
                         +state.get(self.selected_unit, "assists")+" "+state.get(self.selected_unit, "last_hits")+"/"+state.get(self.selected_unit, "denies");
                     break;
                 case ObjectTypes.HERO:
-                    new_html = state.get(self.selected_unit, "name")+"(Lvl "+state.get(self.selected_unit,"level")+"):<br> HP "+state.get(self.selected_unit, "health") +"/"+state.get(self.selected_unit, "max_health")+"<br/>Mana: "
-                        +Math.floor(state.get(self.selected_unit, "mana"))+"/"+Math.floor(state.get(self.selected_unit, "max_mana"));
+                    new_html = state.get(self.selected_unit, "name")+"(Lvl "+state.get(self.selected_unit,"level")+")"+
+                        "<br> HP "+state.get(self.selected_unit, "health") +"/"+state.get(self.selected_unit, "max_health")+
+                        "<br/>Mana: "+Math.floor(state.get(self.selected_unit, "mana"))+"/"+Math.floor(state.get(self.selected_unit, "max_mana"));
+                    break;
+                case ObjectTypes.TOWER:
+                    new_html = "Tower:<br/>"+
+                        state.get(self.selected_unit, "team")+" T"+state.get(self.selected_unit,"tier")+" "+state.get(self.selected_unit,"lane")+"<br/>"+
+                        "HP "+state.get(self.selected_unit, "health") +"/"+state.get(self.selected_unit, "max_health");
+                    break;
+                case ObjectTypes.BARRACKS:
+                    new_html = "Barracks: <br/>"+
+                        state.get(self.selected_unit, "team")+" "+state.get(self.selected_unit,"rax_type")+" "+state.get(self.selected_unit,"lane")+"<br>"+
+                        "HP "+state.get(self.selected_unit, "health") +"/"+state.get(self.selected_unit, "max_health");
+                    break;
+                case ObjectTypes.ANCIENT:
+                    new_html = "Ancient:<br/>" +
+                        state.get(self.selected_unit,"team")+"<br/>"+
+                        "HP "+state.get(self.selected_unit, "health") +"/"+state.get(self.selected_unit, "max_health");
                     break;
                 default:
                     break;
