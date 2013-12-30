@@ -14,10 +14,10 @@
 DIR=/usr/local/dota2ticker
 DAEMON=$DIR/server/executables/connectionserver_main.py
 DAEMON_NAME=dota2ticker
-export PYTHONPATH=/usr/local/dota2ticker:/usr/local/skadi:/usr/local/Tarrasque:
+export PYTHONPATH=/usr/local/dota2ticker:/usr/local/skadi:/usr/local/Tarrasque
 
 # This next line determines what user the script runs as.
-DAEMON_USER=root
+DAEMON_USER=dota2ticker
 
 WEBSERVER_DAEMON=/usr/local/bin/gunicorn
 
@@ -37,9 +37,8 @@ log_end_msg $?
 }
 do_stop () {
 log_daemon_msg "Stopping system $DAEMON_NAME daemon"
-bashPID=$(cat $PIDFILE); [ -n "$bashPID" ] && pkill -P "$bashPID"
-start-stop-daemon --stop --pidfile $PIDFILE --retry 10
 start-stop-daemon --stop --pidfile $PIDPATH/webserver.pid --retry 10
+pkill -u $DAEMON_USER
 log_end_msg $?
 }
  
