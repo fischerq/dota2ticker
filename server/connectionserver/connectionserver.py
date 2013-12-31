@@ -86,8 +86,11 @@ class ConnectionServer:
             server["game_id"] = int(data[3])
             print "registered game server for game {} at ({},{})".format(server["game_id"], server["host"], server["port"])
             self.game_servers.append(server)
-            self.requested_games[:] = [request for request in self.requested_games if request != server["game_id"]]
+            self.requested_games.remove(server["game_id"])
             socket_.sendall("ACCEPTED")
+        elif data[0] == "REMOVE_GAME_SERVER" and len(data) is 2:
+            print "removed game server at host"
+            self.game_servers[:] = [s for s in self.game_servers if s["game_id"] != int(data[1])]
         elif data[0] == "LOADER" and len(data) is 3:
             loader = dict()
             loader["game_id"] = int(data[1])
@@ -97,9 +100,12 @@ class ConnectionServer:
             socket_.sendall("ACCEPTED")
             if loader["game_id"] in self.requested_games:
                  self.create_game_server(loader["game_id"])
+        elif data[0] == "REMOVE_LOADER" and len(data) is 2:
+            print "removed loader at host"
+            self.loaders[:] = [l for l in self.loaders if l["game_id"] != int(data[1])]
         else:
             socket_.sendall("ERROR")
-            print "Bad registration: {} parsed: {}".format(message, data)
+            print "Bad message: {} parsed: {}".format(message, data)
             print "{}, {}, {}".format(data[0] == "GAME_SERVER", data[0] == "LOADER", len(data))
         socket_.close()
 

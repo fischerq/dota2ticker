@@ -19,3 +19,7 @@ registration_proxy = RegistrationProxy(registration_port)
 registration_proxy.add_loader(loader_server)
 
 loader.load()
+
+print "Closed loader"
+connection_server = RegistrationProxy(registration_port)
+connection_server.remove_loader(loader_server)
