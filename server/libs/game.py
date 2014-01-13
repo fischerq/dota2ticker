@@ -2,7 +2,7 @@ import copy
 from server.libs.utils import enum
 from server.libs.events import Event
 SNAPSHOT_INTERVAL = 1000
-
+import traceback
 
 class PastState:
     def __init__(self, game, time):
@@ -238,6 +238,7 @@ class State(dict):
     def get(self, id, attribute):
         if id not in self.data:
             print "Bad Id {} {} ".format(id, attribute)
+            traceback.print_stack()
             return None
         if attribute not in self.data[id]:
             return None

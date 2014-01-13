@@ -23,10 +23,10 @@ class LoaderServer:
                 data = conn.recv(1024)
                 message = ServerProtocol.parse_message(data)
                 if ServerProtocol.check(message) \
-                    and message["Type"] is ServerProtocol.MessageTypes.LISTEN \
-                    and message["GameID"] == self.game_id:
+                        and message["Type"] is ServerProtocol.MessageTypes.LISTEN \
+                        and message["GameID"] == self.game_id:
                     print "Accepted listener for loader {}".format(self.game_id)
-                    conn.sendall(ServerProtocol.AcceptedMessage())
+                    self.send(conn, ServerProtocol.AcceptedMessage())
                     self.listeners.append(conn)
                 else:
                     print "rejecting message {}".format(message)
@@ -56,7 +56,7 @@ class LoaderServer:
             self.send(listener, msg)
 
     def finish(self):
-        msg = "END"
+        msg = "END "
         for listener in self.listeners:
             self.send(listener, msg)
         self.running = False

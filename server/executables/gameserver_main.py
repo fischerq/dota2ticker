@@ -26,3 +26,5 @@ server.timeout_thread.join()
 print "Closed game server"
 connection_server = RegistrationProxy(registration_port)
 connection_server.remove_game_server(server)
+
+print "Gameserver is done"

@@ -104,7 +104,7 @@ class GameServer:
         self.subscribers["Past"] = []
         self.subscribers["Event"] = []
         self.running = True
-        self.webserver_thread = Thread(target=self.server.serve_forever)
+        self.webserver_thread = Thread(target=self.server.serve_forever, args=(0.5,))
         self.past_subscribers_thread = Thread(target=self.serve_past_subscribers)
         self.timeout_thread = Thread(target=self.timeout)
 
@@ -132,15 +132,18 @@ class GameServer:
         timeout = SERVICE_TIMEOUT
         while self.running:
             time.sleep(TIMEOUT_INTERVAL)
+            print "Checking Timeout"
             total_subscribers = len(self.subscribers["Current"])+len(self.subscribers["Past"])+len(self.subscribers["Event"])
-            if total_subscribers > 0:
+            if total_subscribers > 0 or not self.game.complete:
                 timeout = SERVICE_TIMEOUT
             else:
                 timeout -= TIMEOUT_INTERVAL
+            print "{}".format(timeout)
             if timeout < 0:
                 print "Timeout: shutting down gameserver"
                 self.running = False
                 self.server.stop()
+        print "Finished timeout-thread"
 
     def find_client(self, client_id):
         for client in self.clients:

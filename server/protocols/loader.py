@@ -32,11 +32,11 @@ def ListenMessage(game_id):
 
 
 def AcceptedMessage():
-    return "{}".format(MessageTypes.ACCEPTED)
+    return "{} ".format(MessageTypes.ACCEPTED)
 
 
 def RejectedMessage():
-    return "{}".format(MessageTypes.REJECTED)
+    return "{} ".format(MessageTypes.REJECTED)
 
 
 def parse_message(data):

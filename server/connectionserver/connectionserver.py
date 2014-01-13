@@ -91,6 +91,7 @@ class ConnectionServer:
         elif data[0] == "REMOVE_GAME_SERVER" and len(data) is 2:
             print "removed game server at host"
             self.game_servers[:] = [s for s in self.game_servers if s["game_id"] != int(data[1])]
+            socket_.sendall("ACCEPTED")
         elif data[0] == "LOADER" and len(data) is 3:
             loader = dict()
             loader["game_id"] = int(data[1])
@@ -103,6 +104,7 @@ class ConnectionServer:
         elif data[0] == "REMOVE_LOADER" and len(data) is 2:
             print "removed loader at host"
             self.loaders[:] = [l for l in self.loaders if l["game_id"] != int(data[1])]
+            socket_.sendall("ACCEPTED")
         else:
             socket_.sendall("ERROR")
             print "Bad message: {} parsed: {}".format(message, data)

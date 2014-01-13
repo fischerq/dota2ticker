@@ -33,7 +33,7 @@ class LoaderProxy:
         s.connect(("localhost", self.port))
         try:
             s.sendall("LISTEN {}".format(self.game_id))
-            data = s.recv(1024)
+            data = LoaderProxy.read_until(s, " ")
         except socket.error as e:
             print "Error when opening loader proxy: {}".format(e)
             s.close()
@@ -59,6 +59,7 @@ class LoaderProxy:
                     print "Error receiving as loader proxy: {}".format(e)
                     break
                 if message_type == LoaderProtocol.MessageTypes.END:
+                    print "finished loader"
                     self.listener.finish()
                     running = False
                 elif message_type == LoaderProtocol.MessageTypes.EVENT:

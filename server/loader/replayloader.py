@@ -79,6 +79,8 @@ class ReplayLoader:
                 accepted = accepted and (change.type == change_type)
             if change.type is ChangeType.SET:
                 if object_type is not None:
+                    if self.game.current_state.get(change.id, "type") is None:
+                        print change.serialize()
                     accepted = accepted and (self.game.current_state.get(change.id, "type") == object_type)
                 if attribute is not None:
                     accepted = accepted and (change.attribute == attribute)

@@ -14,8 +14,7 @@ class GameDumper:
         message = GameProtocol.UpdateMessage(update)
         self.dump_message(message)
 
+    def finish(self):
+        self.file.close()
     def dump_message(self, message):
         self.file.write("{}\n".format(json.dumps(message, separators=(',', ': '), indent=4)))
-
-    def close(self):
-        self.file.close()
